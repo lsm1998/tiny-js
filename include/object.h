@@ -146,9 +146,9 @@ struct ObjInstance : Obj
 struct ObjBoundMethod : Obj
 {
     Value receiver; // 绑定的 this 对象
-    ObjClosure* method;
+    Obj* method;
 
-    ObjBoundMethod(const Value r, ObjClosure* m) : Obj(ObjType::BOUND_METHOD), receiver(r), method(m)
+    ObjBoundMethod(const Value r, Obj* m) : Obj(ObjType::BOUND_METHOD), receiver(r), method(m)
     {
     }
 };
@@ -195,8 +195,20 @@ inline std::string valToString(const Value val)
         }
         if (o->type == ObjType::CLASS) return "<class " + dynamic_cast<ObjClass*>(o)->name + ">";
         if (o->type == ObjType::INSTANCE) return "<instance " + dynamic_cast<ObjInstance*>(o)->klass->name + ">";
-        if (o->type == ObjType::BOUND_METHOD) return "<fn " + dynamic_cast<ObjBoundMethod*>(o)->method->function->name +
-            ">";
+        if (o->type == ObjType::BOUND_METHOD)
+        {
+            const auto* bound = dynamic_cast<ObjBoundMethod*>(o);
+            if (bound->method->type == ObjType::NATIVE)
+            {
+                return "<native fn " + dynamic_cast<ObjNative*>(bound->method)->name + ">";
+            }
+
+            if (bound->method->type == ObjType::CLOSURE)
+            {
+                return "<fn " + dynamic_cast<ObjClosure*>(bound->method)->function->name + ">";
+            }
+            return "<bound method>";
+        }
         return "object";
     }
     return "";

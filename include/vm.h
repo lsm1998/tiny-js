@@ -72,11 +72,14 @@ public:
 
     std::function<ObjFunction*(std::string)> compilerHook;
 
+    // 数组原生方法
+    std::map<std::string, ObjNative*> listMethods;
+    // 字符串原生方法
+    std::map<std::string, ObjNative*> stringMethods;
+
     VM()
     {
         stack.reserve(2048);
-        // Initialize Natives
-        defineNatives();
     }
 
     ~VM() { freeObjects(); }
@@ -94,6 +97,8 @@ public:
 
     void initModule();
 
+    void bindNativeMethod(ObjType type, const std::string& name, const NativeFn& fn);
+
     ObjString* newString(const std::string& s);
 
     void freeObjects();
@@ -110,9 +115,7 @@ public:
 
     void sweep();
 
-    void defineNative(const std::string& name, const NativeFn& fn);
-
-    void defineNatives();
+    void registerNative();
 
     ObjUpvalue* captureUpvalue(Value* local);
 
@@ -125,6 +128,11 @@ public:
     void callAndRun(ObjClosure* closure);
 
     void run();
+
+    void runWithFile(const std::string& filename);
+
+private:
+    void defineNative(const std::string& name, const NativeFn& fn);
 };
 
 #endif //TINY_JS_VM_H

@@ -1,7 +1,7 @@
 #include "native/require.h"
 #include <iostream>
 
-Value nativeRequire(VM& vm, int argc, const Value* args)
+Value nativeRequire(VM& vm, const int argc, const Value* args)
 {
     if (argc != 1 || !std::holds_alternative<Obj*>(args[0]) ||
         std::get<Obj*>(args[0])->type != ObjType::STRING)
@@ -10,9 +10,9 @@ Value nativeRequire(VM& vm, int argc, const Value* args)
         return std::monostate{};
     }
 
-    std::string path = dynamic_cast<ObjString*>(std::get<Obj*>(args[0]))->chars;
+    const std::string path = dynamic_cast<ObjString*>(std::get<Obj*>(args[0]))->chars;
 
-    // 1. 检查缓存
+    // 是否已加载模块
     if (vm.modules.contains(path))
     {
         return vm.modules[path];
@@ -42,8 +42,8 @@ Value nativeRequire(VM& vm, int argc, const Value* args)
     vm.run();
 
     const Value result = vm.stack.back();
-    vm.stack.pop_back(); // 弹出返回值
-    vm.stack.pop_back(); // 弹出之前压入的闭包 (require内部清理)
+    vm.stack.pop_back();
+    vm.stack.pop_back();
 
     // 缓存模块结果
     vm.modules[path] = result;

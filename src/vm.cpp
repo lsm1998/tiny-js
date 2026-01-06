@@ -27,6 +27,19 @@ void VM::initModule()
     };
 }
 
+
+void VM::bindNativeMethod(const ObjType type, const std::string& name, const NativeFn& fn)
+{
+    if (type == ObjType::STRING)
+    {
+        stringMethods[name] = allocate<ObjNative>(fn, name);
+    }
+    else if (type == ObjType::LIST)
+    {
+        listMethods[name] = allocate<ObjNative>(fn, name);
+    }
+}
+
 ObjString* VM::newString(const std::string& s)
 {
     return allocate<ObjString>(s);
@@ -150,7 +163,7 @@ void VM::defineNative(const std::string& name, const NativeFn& fn)
     stack.pop_back();
 }
 
-void VM::defineNatives()
+void VM::registerNative()
 {
     defineNative("now", [this](auto argc, auto args) -> Value
     {
@@ -166,6 +179,66 @@ void VM::defineNatives()
     {
         return nativeRequire(*this, argc, args);
     });
+
+    bindNativeMethod(ObjType::LIST, "clear", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeListClear(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::LIST, "push", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeListPush(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::LIST, "pop", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeListPop(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::LIST, "join", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeListJoin(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::STRING, "length", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeStringLength(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::STRING, "indexOf", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeStringIndexOf(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::STRING, "substring", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeStringSubstring(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::STRING, "toUpperCase", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeStringToUpper(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::STRING, "toLowerCase", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeStringToLower(*this, argCount, args);
+                     }
+    );
+
+    bindNativeMethod(ObjType::STRING, "trim", [this](auto argCount, auto args) -> Value
+                     {
+                         return nativeStringTrim(*this, argCount, args);
+                     }
+    );
 }
 
 ObjUpvalue* VM::captureUpvalue(Value* local)
@@ -464,11 +537,23 @@ void VM::run()
                 else if (isObjType(callee, ObjType::BOUND_METHOD))
                 {
                     auto* bound = dynamic_cast<ObjBoundMethod*>(std::get<Obj*>(callee));
-
                     stack[calleeSlot] = bound->receiver;
 
-                    frames.push_back({bound->method, bound->method->function->chunk.code.data(), calleeSlot});
-                    frame = &frames.back();
+                    if (bound->method->type == ObjType::CLOSURE)
+                    {
+                        auto* closure = dynamic_cast<ObjClosure*>(bound->method);
+                        frames.push_back({closure, closure->function->chunk.code.data(), calleeSlot});
+                        frame = &frames.back();
+                    }
+                    else if (bound->method->type == ObjType::NATIVE)
+                    {
+                        auto* native = dynamic_cast<ObjNative*>(bound->method);
+                        Value* args = &stack[calleeSlot + 1];
+                        Value res = native->function(argc, args);
+                        stack.resize(calleeSlot);
+                        stack.push_back(res);
+                        frame = &frames.back();
+                    }
                 }
                 else
                 {
@@ -606,6 +691,54 @@ void VM::run()
                 std::string name = dynamic_cast<ObjString*>(std::get<Obj*>(val))->chars;
                 Value objVal = stack.back();
 
+                // 处理数组的原生方法和属性
+                if (isObjType(objVal, ObjType::LIST))
+                {
+                    if (name == "length")
+                    {
+                        auto* list = dynamic_cast<ObjList*>(std::get<Obj*>(objVal));
+                        stack.pop_back();
+                        stack.emplace_back(static_cast<double>(list->elements.size()));
+                        break;
+                    }
+
+                    if (listMethods.contains(name))
+                    {
+                        ObjNative* method = listMethods[name];
+                        auto* bound = allocate<ObjBoundMethod>(objVal, method);
+                        stack.pop_back();
+                        stack.emplace_back(bound);
+                        break;
+                    }
+
+                    runtimeError(("Undefined property '" + name + "' on list.").c_str());
+                    return;
+                }
+
+                // 处理字符串的原生方法和属性
+                if (isObjType(objVal, ObjType::STRING))
+                {
+                    if (name == "length")
+                    {
+                        auto* str = dynamic_cast<ObjString*>(std::get<Obj*>(objVal));
+                        stack.pop_back();
+                        stack.emplace_back(static_cast<double>(str->chars.length()));
+                        break;
+                    }
+
+                    if (stringMethods.contains(name))
+                    {
+                        ObjNative* method = stringMethods[name];
+                        auto* bound = allocate<ObjBoundMethod>(objVal, method);
+                        stack.pop_back();
+                        stack.emplace_back(bound);
+                        break;
+                    }
+
+                    runtimeError(("Undefined property '" + name + "' on string.").c_str());
+                    return;
+                }
+
                 if (!isObjType(objVal, ObjType::INSTANCE))
                 {
                     runtimeError("Only instances have properties.");
@@ -613,7 +746,8 @@ void VM::run()
                 }
                 auto* instance = dynamic_cast<ObjInstance*>(std::get<Obj*>(objVal));
 
-                // 1. 查找字段
+
+                // 查找字段
                 if (instance->fields.contains(name))
                 {
                     stack.pop_back(); // 弹出对象
@@ -621,7 +755,7 @@ void VM::run()
                     break;
                 }
 
-                // 2. 查找方法 (绑定 this)
+                // 查找方法 (绑定 this)
                 if (instance->klass->methods.contains(name))
                 {
                     ObjClosure* method = instance->klass->methods[name];
@@ -655,5 +789,23 @@ void VM::run()
             }
         default: break;
         }
+    }
+}
+
+void VM::runWithFile(const std::string& filename)
+{
+    if (const std::string source = readFile(filename); !source.empty())
+    {
+        Scanner scanner(source);
+        const auto tokens = scanner.scanTokens();
+        Parser parser(tokens);
+        const auto stmts = parser.parse();
+        Compiler compiler(*this);
+        ObjFunction* script = compiler.compile(stmts);
+        this->interpret(script);
+    }
+    else
+    {
+        std::cerr << "Could not read file: " << filename << std::endl;
     }
 }
