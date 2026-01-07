@@ -2,6 +2,7 @@
 #define TINY_JS_TOKEN_H
 
 #include <string>
+#include <variant>
 
 enum class TokenType
 {
