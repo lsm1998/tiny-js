@@ -4,6 +4,7 @@
 #include "compiler.h"
 #include "native/require.h"
 #include "native/base.h"
+#include "native/file.h"
 #include <iostream>
 
 void VM::initModule()
@@ -38,6 +39,23 @@ void VM::bindNativeMethod(const ObjType type, const std::string& name, const Nat
     {
         listMethods[name] = allocate<ObjNative>(fn, name);
     }
+}
+
+void VM::defineNativeClass(const std::string& className, std::map<std::string, NativeFn> methods)
+{
+    auto* klass = allocate<ObjClass>(className);
+    klass->isNative = true; // 标记为原生
+
+    // 注册方法
+    for (auto& [name, fn] : methods)
+    {
+        klass->nativeMethods[name] = allocate<ObjNative>(fn, name);
+    }
+
+    // 注册全局变量
+    stack.emplace_back(klass);
+    globals[className] = klass;
+    stack.pop_back();
 }
 
 ObjString* VM::newString(const std::string& s)
@@ -146,7 +164,7 @@ void VM::sweep()
         }
         else
         {
-            Obj* unreached = obj;
+            const Obj* unreached = obj;
             obj = obj->next;
             if (prev) prev->next = obj;
             else objects = obj;
@@ -173,6 +191,11 @@ void VM::registerNative()
     defineNative("print", [this](auto argc, auto args) -> Value
     {
         return nativePrint(*this, argc, args);
+    });
+
+    defineNative("println", [this](auto argc, auto args) -> Value
+    {
+        return nativePrintln(*this, argc, args);
     });
 
     defineNative("require", [this](auto argc, auto args) -> Value
@@ -251,6 +274,8 @@ void VM::registerNative()
                          return nativeStringTrim(*this, argCount, args);
                      }
     );
+
+    registerNativeFile(*this);
 }
 
 ObjUpvalue* VM::captureUpvalue(Value* local)
@@ -527,13 +552,31 @@ void VM::run()
                 else if (isObjType(callee, ObjType::CLASS))
                 {
                     auto* klass = dynamic_cast<ObjClass*>(std::get<Obj*>(callee));
-                    auto* instance = allocate<ObjInstance>(klass);
 
-                    // 将栈上的 Class 替换为 Instance (作为 this)
+                    ObjInstance* instance;
+                    if (klass->isNative)
+                    {
+                        instance = allocate<ObjNativeInstance>(klass);
+                    }
+                    else
+                    {
+                        instance = allocate<ObjInstance>(klass);
+                    }
+
                     stack[calleeSlot] = instance;
 
-                    // 检查是否有构造函数 'constructor'
-                    if (klass->methods.contains("constructor"))
+                    if (klass->nativeMethods.contains("constructor"))
+                    {
+                        ObjNative* init = klass->nativeMethods["constructor"];
+                        Value* args = &stack[calleeSlot + 1];
+                        // 调用原生 init，args[-1] 是刚创建的 instance
+                        init->function(argc, args);
+
+                        stack.resize(calleeSlot);
+                        stack.emplace_back(instance); // 构造函数返回实例
+                        frame = &frames.back();
+                    }
+                    else if (klass->methods.contains("constructor"))
                     {
                         ObjClosure* init = klass->methods["constructor"];
                         // 创建帧，开始执行 init 方法
@@ -758,7 +801,6 @@ void VM::run()
                 }
                 auto* instance = dynamic_cast<ObjInstance*>(std::get<Obj*>(objVal));
 
-
                 // 查找字段
                 if (instance->fields.contains(name))
                 {
@@ -767,12 +809,22 @@ void VM::run()
                     break;
                 }
 
+                // 查找原生方法 (绑定 this)
+                if (instance->klass->nativeMethods.contains(name))
+                {
+                    ObjNative* method = instance->klass->nativeMethods[name];
+                    auto* bound = allocate<ObjBoundMethod>(objVal, method);
+                    stack.pop_back();
+                    stack.emplace_back(bound);
+                    break;
+                }
+
                 // 查找方法 (绑定 this)
                 if (instance->klass->methods.contains(name))
                 {
                     ObjClosure* method = instance->klass->methods[name];
                     auto* bound = allocate<ObjBoundMethod>(objVal, method);
-                    stack.pop_back(); // 弹出对象
+                    stack.pop_back();
                     stack.emplace_back(bound);
                     break;
                 }

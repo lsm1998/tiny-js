@@ -125,8 +125,14 @@ struct ObjList : Obj
 
 struct ObjClass : Obj
 {
+    // 类名
     std::string name;
-    std::map<std::string, ObjClosure*> methods; // 方法表
+    // 方法表
+    std::map<std::string, ObjClosure*> methods;
+    // 原生方法
+    std::map<std::string, ObjNative*> nativeMethods;
+    // 是否为原生类
+    bool isNative = false;
 
     explicit ObjClass(std::string n) : Obj(ObjType::CLASS), name(std::move(n))
     {
@@ -150,6 +156,33 @@ struct ObjBoundMethod : Obj
 
     ObjBoundMethod(const Value r, Obj* m) : Obj(ObjType::BOUND_METHOD), receiver(r), method(m)
     {
+    }
+};
+
+struct FileHandle
+{
+    std::fstream stream;
+    std::string path;
+};
+
+struct ObjNativeInstance : ObjInstance
+{
+    // 原生数据指针
+    void* data = nullptr;
+    // 清理函数
+    std::function<void(void*)> deleter;
+
+    explicit ObjNativeInstance(ObjClass* k) : ObjInstance(k)
+    {
+    }
+
+    ~ObjNativeInstance() override
+    {
+        if (data && deleter)
+        {
+            deleter(data);
+            data = nullptr;
+        }
     }
 };
 

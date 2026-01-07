@@ -2,16 +2,16 @@ let arr = [1, 2, 3];
 
 arr.push(4, 5);
 
-print(arr);
+println(arr);
 
-print(arr.length);
+println(arr.length);
 
-print(arr.join(","));
+println(arr.join(","));
 
 
 let str = "Hello, World!";
 
-print(str.length);
+println(str.length);
 
 for (let i = 0; i < str.length; i++) {
     print(str.at(i));

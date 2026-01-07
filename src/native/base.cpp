@@ -12,10 +12,15 @@ Value nativeNow(VM& vm, int argc, const Value* args)
 Value nativePrint(VM& vm, const int argc, const Value* args)
 {
     for (int i = 0; i < argc; i++) std::cout << valToString(args[i]) << (i < argc - 1 ? " " : "");
-    std::cout << std::endl;
     return std::monostate{};
 }
 
+Value nativePrintln(VM& vm, const int argc, const Value* args)
+{
+    nativePrint(vm, argc, args);
+    std::cout << std::endl;
+    return std::monostate{};
+}
 
 Value nativeStringLength(VM& vm, int argc, const Value* args)
 {

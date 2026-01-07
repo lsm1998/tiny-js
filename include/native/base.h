@@ -5,6 +5,8 @@
 
 Value nativePrint(VM& vm, int argc, const Value* args);
 
+Value nativePrintln(VM& vm, int argc, const Value* args);
+
 Value nativeNow(VM& vm, int argc, const Value* args);
 
 Value nativeStringLength(VM& vm, int argc, const Value* args);

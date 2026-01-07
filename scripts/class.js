@@ -4,7 +4,7 @@ class Person {
     }
 
     say() {
-        print("I am " + this.name);
+        println("I am " + this.name);
     }
 }
 

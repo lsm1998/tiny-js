@@ -6,7 +6,7 @@ var util = require("util.js");
 
 let add = util[0];
 
-print("2 + 3 = " + add(2, 3));
+println("2 + 3 = " + add(2, 3));
 
 let str = "Hello, ";
 
@@ -14,12 +14,12 @@ function greet(name) {
     return str + name + "!";
 }
 
-print(greet("World"));
+println(greet("World"));
 
 str = "Count: ";
 for (var i = 0; i < 5; i++) {
     str = str + "(" + i + ") ";
-    print(str);
+    println(str);
 }
 
 // str = "当前时间戳=" + now();

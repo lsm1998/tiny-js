@@ -99,6 +99,8 @@ public:
 
     void bindNativeMethod(ObjType type, const std::string& name, const NativeFn& fn);
 
+    void defineNativeClass(const std::string& className, std::map<std::string, NativeFn> methods);
+
     ObjString* newString(const std::string& s);
 
     void freeObjects();

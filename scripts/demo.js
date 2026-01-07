@@ -7,16 +7,16 @@
 
 let ts = 100;
 
-print("ts= " + ts);
+println("ts= " + ts);
 
 ts = 101;
 
-print(ts);
+println(ts);
 
-print(now());
+println(now());
 
 function hello() {
-    print("Hello, World!");
+    println("Hello, World!");
 }
 
 hello();
@@ -28,6 +28,6 @@ class Person {
     }
 
     sayHello() {
-        print("Hello, I am " + this.name);
+        println("Hello, I am " + this.name);
     }
 }
