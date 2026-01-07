@@ -1,5 +1,6 @@
 #include "native/base.h"
 #include <iostream>
+#include <chrono>
 
 Value nativeNow(VM& vm, int argc, const Value* args)
 {
