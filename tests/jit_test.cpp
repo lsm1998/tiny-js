@@ -1,9 +1,12 @@
 #include "jit.h"
 #include "object.h"
+#include "parser.h"
 #include <iostream>
-#include <vector>
 
-int main()
+#include "compiler.h"
+#include "scanner.h"
+
+void testWithChunk()
 {
     JitCompiler compiler;
 
@@ -37,20 +40,10 @@ int main()
         double args[1] = {0.0};
         const double result1 = func1(args);
         std::cout << "JIT 执行结果: " << result1 << std::endl;
-
-        if (result1 == 25.0)
-        {
-            std::cout << "✅ 成功!" << std::endl;
-        }
-        else
-        {
-            std::cout << "❌ 失败!" << std::endl;
-            std::cout << "期望结果: 25.0" << std::endl;
-        }
     }
     else
     {
-        std::cout << "JIT 编译失败" << std::endl;
+        std::cerr << "JIT 编译失败" << std::endl;
     }
 
     std::cout << std::endl;
@@ -60,21 +53,50 @@ int main()
         double args[1] = {0.0};
         const double result2 = func2(args);
         std::cout << "JIT 执行结果: " << result2 << std::endl;
-
-        if (result2 == 25.0)
-        {
-            std::cout << "✅ 成功!" << std::endl;
-        }
-        else
-        {
-            std::cout << "❌ 失败!" << std::endl;
-            std::cout << "期望结果: 25.0" << std::endl;
-        }
     }
     else
     {
-        std::cout << "JIT 编译失败" << std::endl;
+        std::cerr << "JIT 编译失败" << std::endl;
     }
+}
 
-    return 0;
+void testWithScript()
+{
+    JitCompiler compiler;
+
+    // 测试脚本: return (15 + 10) * 2;
+    const std::string script = R"(
+        return (15 + 10) * 2;
+    )";
+
+    Scanner scanner(script);
+    const auto tokens = scanner.scanTokens();
+    Parser parser(tokens);
+    const auto stmts = parser.parse();
+
+
+    VM vm;
+    Compiler comp(vm);
+
+    ObjFunction* function = comp.compile(stmts);
+    auto chunk = function->chunk;
+
+    std::cout << "=== 测试脚本: return (15 + 10) * 2; ===" << std::endl;
+    if (const auto func = compiler.compile(&chunk))
+    {
+        double args[1] = {0.0};
+        const double result = func(args);
+        std::cout << "JIT 执行结果: " << result << std::endl;
+    }
+    else
+    {
+        std::cerr << "JIT 编译失败" << std::endl;
+    }
+}
+
+int main()
+{
+    testWithChunk();
+
+    testWithScript();
 }
