@@ -1,46 +1,80 @@
 #include "jit.h"
+#include "object.h"
 #include <iostream>
 #include <vector>
-#include <cstring>
-
-void pushDouble(std::vector<uint8_t>& bc, double val)
-{
-    uint8_t bytes[8];
-    std::memcpy(bytes, &val, 8);
-    for (auto b : bytes) bc.push_back(b);
-}
 
 int main()
 {
     JitCompiler compiler;
 
-    std::vector<uint8_t> bytecode;
+    // 测试 1: (10 + 20) - 5 = 25
+    Chunk chunk1;
+    chunk1.write(static_cast<uint8_t>(OpCode::OP_CONSTANT));
+    chunk1.write(static_cast<uint8_t>(chunk1.addConstant(10.0)));
+    chunk1.write(static_cast<uint8_t>(OpCode::OP_CONSTANT));
+    chunk1.write(static_cast<uint8_t>(chunk1.addConstant(20.0)));
+    chunk1.write(static_cast<uint8_t>(OpCode::OP_ADD));
+    chunk1.write(static_cast<uint8_t>(OpCode::OP_CONSTANT));
+    chunk1.write(static_cast<uint8_t>(chunk1.addConstant(5.0)));
+    chunk1.write(static_cast<uint8_t>(OpCode::OP_SUB));
+    chunk1.write(static_cast<uint8_t>(OpCode::OP_RETURN));
 
-   /**
-    * 计算 (10 + 20) - 5
-    */
-    bytecode.push_back(static_cast<uint8_t>(OpCode::OP_CONSTANT));
-    pushDouble(bytecode, 10.0);
-    bytecode.push_back(static_cast<uint8_t>(OpCode::OP_CONSTANT));
-    pushDouble(bytecode, 20.0);
-    bytecode.push_back(static_cast<uint8_t>(OpCode::OP_ADD));
-    bytecode.push_back(static_cast<uint8_t>(OpCode::OP_CONSTANT));
-    pushDouble(bytecode, 5.0);
-    bytecode.push_back(static_cast<uint8_t>(OpCode::OP_SUB));
-    bytecode.push_back(static_cast<uint8_t>(OpCode::OP_RETURN));
+    // 测试 2: (20 * 5) / 4 = 25
+    Chunk chunk2;
+    chunk2.write(static_cast<uint8_t>(OpCode::OP_CONSTANT));
+    chunk2.write(static_cast<uint8_t>(chunk2.addConstant(20.0)));
+    chunk2.write(static_cast<uint8_t>(OpCode::OP_CONSTANT));
+    chunk2.write(static_cast<uint8_t>(chunk2.addConstant(5.0)));
+    chunk2.write(static_cast<uint8_t>(OpCode::OP_MUL));
+    chunk2.write(static_cast<uint8_t>(OpCode::OP_CONSTANT));
+    chunk2.write(static_cast<uint8_t>(chunk2.addConstant(4.0)));
+    chunk2.write(static_cast<uint8_t>(OpCode::OP_DIV));
+    chunk2.write(static_cast<uint8_t>(OpCode::OP_RETURN));
 
-    Chunk chunk;
-    chunk.code = bytecode;
-    if (const auto func = compiler.compile(&chunk))
+    std::cout << "=== 测试 1: (10 + 20) - 5 ===" << std::endl;
+    if (const auto func1 = compiler.compile(&chunk1))
     {
         double args[1] = {0.0};
-        const double result = func(args);
-        // 输出25
-        std::cout << "JIT 执行结果: " << result << std::endl;
+        const double result1 = func1(args);
+        std::cout << "JIT 执行结果: " << result1 << std::endl;
+
+        if (result1 == 25.0)
+        {
+            std::cout << "✅ 成功!" << std::endl;
+        }
+        else
+        {
+            std::cout << "❌ 失败!" << std::endl;
+            std::cout << "期望结果: 25.0" << std::endl;
+        }
     }
     else
     {
         std::cout << "JIT 编译失败" << std::endl;
     }
+
+    std::cout << std::endl;
+    std::cout << "=== 测试 2: (20 * 5) / 4 ===" << std::endl;
+    if (const auto func2 = compiler.compile(&chunk2))
+    {
+        double args[1] = {0.0};
+        const double result2 = func2(args);
+        std::cout << "JIT 执行结果: " << result2 << std::endl;
+
+        if (result2 == 25.0)
+        {
+            std::cout << "✅ 成功!" << std::endl;
+        }
+        else
+        {
+            std::cout << "❌ 失败!" << std::endl;
+            std::cout << "期望结果: 25.0" << std::endl;
+        }
+    }
+    else
+    {
+        std::cout << "JIT 编译失败" << std::endl;
+    }
+
     return 0;
 }

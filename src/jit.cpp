@@ -302,9 +302,9 @@ JitCompiler::JitFn JitCompiler::compileAArch64(const Chunk* chunk, CodeHolder& c
                 auto d0 = cc.new_vec_d();
                 auto d1 = cc.new_vec_d();
                 cc.sub(stackOffset, stackOffset, 8);
-                cc.ldr(d0, a64::ptr(a64::regs::sp, stackOffset)); // 弹出 b
+                cc.ldr(d0, a64::ptr(a64::regs::sp, stackOffset));
                 cc.sub(stackOffset, stackOffset, 8);
-                cc.ldr(d1, a64::ptr(a64::regs::sp, stackOffset)); // 弹出 a
+                cc.ldr(d1, a64::ptr(a64::regs::sp, stackOffset));
                 cc.fsub(d1, d1, d0); // 计算 a - b
                 cc.str(d1, a64::ptr(a64::regs::sp, stackOffset));
                 cc.add(stackOffset, stackOffset, 8);
@@ -316,9 +316,9 @@ JitCompiler::JitFn JitCompiler::compileAArch64(const Chunk* chunk, CodeHolder& c
                 auto d0 = cc.new_vec_d();
                 auto d1 = cc.new_vec_d();
                 cc.sub(stackOffset, stackOffset, 8);
-                cc.ldr(d0, a64::ptr(a64::regs::sp, stackOffset)); // 弹出 b
+                cc.ldr(d0, a64::ptr(a64::regs::sp, stackOffset));
                 cc.sub(stackOffset, stackOffset, 8);
-                cc.ldr(d1, a64::ptr(a64::regs::sp, stackOffset)); // 弹出 a
+                cc.ldr(d1, a64::ptr(a64::regs::sp, stackOffset));
                 cc.fdiv(d1, d1, d0); // 计算 a / b
                 cc.str(d1, a64::ptr(a64::regs::sp, stackOffset));
                 cc.add(stackOffset, stackOffset, 8);
@@ -329,7 +329,6 @@ JitCompiler::JitFn JitCompiler::compileAArch64(const Chunk* chunk, CodeHolder& c
                 auto result = cc.new_vec_d();
                 cc.sub(stackOffset, stackOffset, 8);
                 cc.ldr(result, a64::ptr(a64::regs::sp, stackOffset));
-                // 函数尾声
                 cc.ldp(a64::regs::x29, a64::regs::x30, a64::ptr(a64::regs::sp, 0));
                 cc.add(a64::regs::sp, a64::regs::sp, 128);
                 cc.fmov(a64::regs::d0, result);
