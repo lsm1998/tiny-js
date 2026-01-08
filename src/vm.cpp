@@ -535,8 +535,59 @@ void VM::run()
                 if (Value callee = stack[calleeSlot]; isObjType(callee, ObjType::CLOSURE))
                 {
                     auto* cl = dynamic_cast<ObjClosure*>(std::get<Obj*>(callee));
-                    frames.push_back({cl, cl->function->chunk.code.data(), calleeSlot});
-                    frame = &frames.back();
+
+                    // 检查是否已经有 JIT 编译后的函数
+                    if (cl->function->jitFunction == nullptr)
+                    {
+                        // 尝试 JIT 编译
+                        JitCompiler::JitFn jitFn = jit.compile(&cl->function->chunk);
+                        if (jitFn != nullptr)
+                        {
+                            cl->function->jitFunction = reinterpret_cast<void*>(jitFn);
+                            std::cout << "JIT compiled function: " << cl->function->name << std::endl;
+                        }
+                        else
+                        {
+                            std::cout << "JIT compilation failed for function: " << cl->function->name << std::endl;
+                        }
+                    }
+
+                    // 如果有 JIT 函数，执行 JIT 代码
+                    if (cl->function->jitFunction != nullptr)
+                    {
+                        std::cout << "Executing JIT function: " << cl->function->name << std::endl;
+                        // 准备参数
+                        double args[256]; // 假设最多 256 个参数
+                        for (int i = 0; i < argc; ++i)
+                        {
+                            if (std::holds_alternative<double>(stack[calleeSlot + 1 + i]))
+                            {
+                                args[i] = std::get<double>(stack[calleeSlot + 1 + i]);
+                            }
+                            else
+                            {
+                                // 如果参数不是数字，回退到解释器执行
+                                frames.push_back({cl, cl->function->chunk.code.data(), calleeSlot});
+                                frame = &frames.back();
+                                goto call_end;
+                            }
+                        }
+
+                        // 调用 JIT 函数
+                        JitCompiler::JitFn jitFn = reinterpret_cast<JitCompiler::JitFn>(cl->function->jitFunction);
+                        double result = jitFn(args);
+
+                        // 处理返回值
+                        stack.resize(calleeSlot);
+                        stack.push_back(result);
+                        frame = &frames.back();
+                    }
+                    else
+                    {
+                        // 没有 JIT 函数，回退到解释器执行
+                        frames.push_back({cl, cl->function->chunk.code.data(), calleeSlot});
+                        frame = &frames.back();
+                    }
                 }
                 else if (isObjType(callee, ObjType::NATIVE))
                 {
@@ -615,6 +666,7 @@ void VM::run()
                     std::cerr << "Call failed\n";
                     return;
                 }
+            call_end:
                 break;
             }
         case OpCode::OP_CLOSURE:

@@ -1,4 +1,5 @@
 #include "compiler.h"
+#include <iostream>
 
 Chunk* Compiler::currentChunk() const
 {
@@ -111,24 +112,43 @@ void Compiler::compileFunction(const std::shared_ptr<FunctionStmt>& s, bool isMe
         current->locals.push_back({p.lexeme, current->scopeDepth, false, false});
     }
 
+    bool hasReturn = false;
     for (auto& b : s->body)
     {
+        if (std::dynamic_pointer_cast<ReturnStmt>(b))
+        {
+            hasReturn = true;
+        }
         compileStmt(b);
     }
 
-    if (isMethod && s->name.lexeme == "constructor")
+    if (!hasReturn)
     {
-        emitBytes(static_cast<uint8_t>(OpCode::OP_GET_LOCAL), 0);
-    }
-    else
-    {
-        emitByte(static_cast<uint8_t>(OpCode::OP_NIL));
-    }
+        if (isMethod && s->name.lexeme == "constructor")
+        {
+            emitBytes(static_cast<uint8_t>(OpCode::OP_GET_LOCAL), 0);
+        }
+        else
+        {
+            emitByte(static_cast<uint8_t>(OpCode::OP_NIL));
+        }
 
-    emitByte(static_cast<uint8_t>(OpCode::OP_RETURN));
+        emitByte(static_cast<uint8_t>(OpCode::OP_RETURN));
+    }
 
     ObjFunction* f = current->function;
     const auto ups = current->upvalues;
+
+    // 打印函数的字节码
+    std::cout << "Compiled function: " << f->name << std::endl;
+    std::cout << "Bytecode size: " << f->chunk.code.size() << std::endl;
+    std::cout << "Constants: " << f->chunk.constants.size() << std::endl;
+    std::cout << "Bytecode: ";
+    for (uint8_t byte : f->chunk.code)
+    {
+        std::cout << static_cast<int>(byte) << " ";
+    }
+    std::cout << std::endl;
 
     vm.tempRoots.pop_back();
 
@@ -162,6 +182,17 @@ ObjFunction* Compiler::compile(const std::vector<std::shared_ptr<Stmt>>& stmts)
     emitByte(static_cast<uint8_t>(OpCode::OP_NIL));
     emitByte(static_cast<uint8_t>(OpCode::OP_RETURN));
     ObjFunction* f = current->function;
+
+    // 打印字节码
+    std::cout << "Compiled function: " << f->name << std::endl;
+    std::cout << "Bytecode size: " << f->chunk.code.size() << std::endl;
+    std::cout << "Constants: " << f->chunk.constants.size() << std::endl;
+    std::cout << "Bytecode: ";
+    for (uint8_t byte : f->chunk.code)
+    {
+        std::cout << static_cast<int>(byte) << " ";
+    }
+    std::cout << std::endl;
 
     vm.tempRoots.pop_back();
     delete current;

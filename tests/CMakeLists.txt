@@ -3,4 +3,5 @@ file(GLOB CPP_SOURCES "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/s
 foreach(TEST_SOURCE ${TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
     add_executable(${TEST_NAME} ${TEST_SOURCE} ${CPP_SOURCES})
+    target_link_libraries(${TEST_NAME} PRIVATE asmjit::asmjit)
 endforeach()
