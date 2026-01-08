@@ -109,7 +109,7 @@ struct ExpressionStmt : Stmt
 {
     std::shared_ptr<Expr> expression;
 
-    ExpressionStmt(auto e) : expression(e)
+    explicit ExpressionStmt(auto e) : expression(e)
     {
     }
 };
@@ -131,7 +131,7 @@ struct BlockStmt : Stmt
 {
     std::vector<std::shared_ptr<Stmt>> statements;
 
-    BlockStmt(auto s) : statements(s)
+    explicit BlockStmt(auto s) : statements(s)
     {
     }
 };

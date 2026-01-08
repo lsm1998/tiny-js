@@ -8,7 +8,7 @@ int main(const int argc, char* argv[])
     VM vm;
     vm.initModule();
     vm.registerNative();
-    vm.enableJIT(false);
+    vm.enableJIT(true);
 
     std::string entryFile = MAIN_FILE;
     if (argc > 1)

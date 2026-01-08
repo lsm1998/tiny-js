@@ -580,6 +580,7 @@ void VM::run()
                         stack.resize(calleeSlot);
                         stack.emplace_back(result);
                         frame = &frames.back();
+                        debug_log("JIT函数{}调用成功", cl->function->name);
                     }
                     else
                     {

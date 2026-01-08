@@ -196,7 +196,6 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
         {
             // 全局变量
             const int i = currentChunk()->addConstant(vm.newString(var_stmt->name.lexeme));
-
             OpCode opCode = var_stmt->isConst ? OpCode::OP_DEFINE_GLOBAL_CONST : OpCode::OP_DEFINE_GLOBAL;
             emitBytes(static_cast<uint8_t>(opCode), static_cast<uint8_t>(i));
         }

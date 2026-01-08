@@ -17,16 +17,8 @@ public:
     // 定义 JIT 函数类型，接受参数并返回结果
     using JitFn = double (*)(double* args);
 
-    JitFn compile(Chunk* chunk)
+    JitFn compile(const Chunk* chunk)
     {
-        debug_log("开始 JIT 编译");
-        debug_log("字节码大小: {}", chunk->code.size());
-        debug_log("字节码内容:");
-        for (int i = 0; i < chunk->code.size(); i++)
-        {
-            debug_log("  Offset {}: {}", i, static_cast<int>(chunk->code[i]));
-        }
-
         CodeHolder code;
         code.init(rt.environment());
 
@@ -71,6 +63,18 @@ private:
 
             switch (instruction)
             {
+            case static_cast<uint8_t>(OpCode::OP_CONSTANT):
+                {
+                    const uint8_t idx = chunk->code[ip++];
+                    const double value = std::get<double>(chunk->constants[idx]);
+                    x86::Vec xmm0 = cc.new_xmm();
+                    x86::Gp temp = cc.new_gp64();
+                    cc.mov(temp, *reinterpret_cast<const uint64_t*>(&value));
+                    cc.movq(xmm0, temp);
+                    cc.sub(x86::rsp, 8);
+                    cc.movsd(x86::Mem(x86::rsp, 0), xmm0);
+                    break;
+                }
             case static_cast<uint8_t>(OpCode::OP_GET_LOCAL):
                 {
                     const uint8_t idx = chunk->code[ip++];
@@ -78,6 +82,15 @@ private:
                     cc.movsd(xmm0, x86::ptr(args, idx * 8));
                     cc.sub(x86::rsp, 8);
                     cc.movsd(x86::Mem(x86::rsp, 0), xmm0);
+                    break;
+                }
+            case static_cast<uint8_t>(OpCode::OP_SET_LOCAL):
+                {
+                    const uint8_t idx = chunk->code[ip++];
+                    x86::Vec xmm0 = cc.new_xmm();
+                    cc.movsd(xmm0, x86::Mem(x86::rsp, 0));
+                    cc.add(x86::rsp, 8);
+                    cc.movsd(x86::ptr(args, idx * 8), xmm0);
                     break;
                 }
             case static_cast<uint8_t>(OpCode::OP_ADD):
@@ -179,44 +192,75 @@ private:
         const a64::Gp args = cc.new_gp64();
         func_node->set_arg(0, args);
 
+        // 函数序言 - 分配足够的栈空间（使用固定大小的栈帧，避免动态调整sp）
+        cc.sub(a64::regs::sp, a64::regs::sp, 128);  // 分配128字节的固定栈帧
+        cc.stp(a64::regs::x29, a64::regs::x30, a64::ptr(a64::regs::sp, 0));
+        cc.mov(a64::regs::x29, a64::regs::sp);
+
+        // 使用一个虚拟寄存器作为栈指针偏移（避免直接修改sp导致对齐问题）
+        a64::Gp stackOffset = cc.new_gp64();
+        cc.mov(stackOffset, 16);  // 栈帧开始在sp+16处（因为x29和x30占据了0-15字节）
+
         // 处理字节码
         int ip = 0;
         bool jitFailed = false;
 
         while (ip < chunk->code.size() && !jitFailed)
         {
-            const uint8_t instruction = chunk->code[ip++];
-
-            debug_log("处理指令: {}", static_cast<int>(instruction));
-            switch (instruction)
+            switch (const uint8_t instruction = chunk->code[ip++])
             {
+            case static_cast<uint8_t>(OpCode::OP_CONSTANT):
+                {
+                    const uint8_t idx = chunk->code[ip++];
+                    const double value = std::get<double>(chunk->constants[idx]);
+                    auto d0 = cc.new_vec_d();
+                    cc.fmov(d0, value);
+                    cc.str(d0, a64::ptr(a64::regs::sp, stackOffset));
+                    cc.add(stackOffset, stackOffset, 8);
+                    break;
+                }
             case static_cast<uint8_t>(OpCode::OP_GET_LOCAL):
                 {
-                    debug_log("处理 OP_GET_LOCAL");
                     const uint8_t idx = chunk->code[ip++];
                     auto d0 = cc.new_vec_d();
-                    // args 是 double* 类型，索引 idx 的参数是 args[idx]
-                    cc.ldr(d0, a64::ptr(args, idx * 8));
-                    // 压入到评估栈
-                    cc.sub(a64::regs::sp, a64::regs::sp, 8);
-                    cc.str(d0, a64::ptr(a64::regs::sp, 0));
+                    // 编译器中第一个参数索引是 1，而 VM 传递的 args 数组索引是 0
+                    if (idx > 0)
+                    {
+                        cc.ldr(d0, a64::ptr(args, (idx - 1) * 8));
+                    }
+                    else
+                    {
+                        cc.fmov(d0, 0.0);
+                    }
+                    cc.str(d0, a64::ptr(a64::regs::sp, stackOffset));
+                    cc.add(stackOffset, stackOffset, 8);
+                    break;
+                }
+            case static_cast<uint8_t>(OpCode::OP_SET_LOCAL):
+                {
+                    debug_log("处理 OP_SET_LOCAL");
+                    const uint8_t idx = chunk->code[ip++];
+                    auto d0 = cc.new_vec_d();
+                    cc.sub(stackOffset, stackOffset, 8);
+                    cc.ldr(d0, a64::ptr(a64::regs::sp, stackOffset));
+                    // 编译器中第一个参数索引是 1，而 VM 传递的 args 数组索引是 0
+                    if (idx > 0)
+                    {
+                        cc.str(d0, a64::ptr(args, (idx - 1) * 8));
+                    }
                     break;
                 }
             case static_cast<uint8_t>(OpCode::OP_ADD):
                 {
-                    debug_log("处理 OP_ADD");
                     auto d0 = cc.new_vec_d();
                     auto d1 = cc.new_vec_d();
-                    // 从栈中弹出两个操作数
-                    cc.ldr(d0, a64::ptr(a64::regs::sp, 0));
-                    cc.add(a64::regs::sp, a64::regs::sp, 8);
-                    cc.ldr(d1, a64::ptr(a64::regs::sp, 0));
-                    cc.add(a64::regs::sp, a64::regs::sp, 8);
-                    // 相加
-                    cc.fadd(d0, d1, d0);
-                    // 压回栈
-                    cc.sub(a64::regs::sp, a64::regs::sp, 8);
-                    cc.str(d0, a64::ptr(a64::regs::sp, 0));
+                    cc.sub(stackOffset, stackOffset, 8);
+                    cc.ldr(d0, a64::ptr(a64::regs::sp, stackOffset));  // 弹出 b
+                    cc.sub(stackOffset, stackOffset, 8);
+                    cc.ldr(d1, a64::ptr(a64::regs::sp, stackOffset));  // 弹出 a
+                    cc.fadd(d1, d1, d0);  // 计算 a + b
+                    cc.str(d1, a64::ptr(a64::regs::sp, stackOffset));
+                    cc.add(stackOffset, stackOffset, 8);
                     break;
                 }
             case static_cast<uint8_t>(OpCode::OP_MUL):
@@ -224,27 +268,25 @@ private:
                     debug_log("处理 OP_MUL");
                     auto d0 = cc.new_vec_d();
                     auto d1 = cc.new_vec_d();
-                    // 从栈中弹出两个操作数
-                    cc.ldr(d0, a64::ptr(a64::regs::sp, 0));
-                    cc.add(a64::regs::sp, a64::regs::sp, 8);
-                    cc.ldr(d1, a64::ptr(a64::regs::sp, 0));
-                    cc.add(a64::regs::sp, a64::regs::sp, 8);
-                    // 相乘
-                    cc.fmul(d0, d1, d0);
-                    // 压回栈
-                    cc.sub(a64::regs::sp, a64::regs::sp, 8);
-                    cc.str(d0, a64::ptr(a64::regs::sp, 0));
+                    cc.sub(stackOffset, stackOffset, 8);
+                    cc.ldr(d0, a64::ptr(a64::regs::sp, stackOffset));  // 弹出 b
+                    cc.sub(stackOffset, stackOffset, 8);
+                    cc.ldr(d1, a64::ptr(a64::regs::sp, stackOffset));  // 弹出 a
+                    cc.fmul(d1, d1, d0);  // 计算 a * b
+                    cc.str(d1, a64::ptr(a64::regs::sp, stackOffset));
+                    cc.add(stackOffset, stackOffset, 8);
                     break;
                 }
             case static_cast<uint8_t>(OpCode::OP_RETURN):
                 {
-                    debug_log("处理 OP_RETURN");
-                    const auto result = cc.new_vec_d();
-                    // 从栈中取出返回值
-                    cc.ldr(result, a64::ptr(a64::regs::sp, 0));
-                    cc.add(a64::regs::sp, a64::regs::sp, 8);
-                    // 返回结果
-                    cc.ret(result);
+                    auto result = cc.new_vec_d();
+                    cc.sub(stackOffset, stackOffset, 8);
+                    cc.ldr(result, a64::ptr(a64::regs::sp, stackOffset));
+                    // 函数尾声
+                    cc.ldp(a64::regs::x29, a64::regs::x30, a64::ptr(a64::regs::sp, 0));
+                    cc.add(a64::regs::sp, a64::regs::sp, 128);
+                    cc.fmov(a64::regs::d0, result);
+                    cc.ret();
                     goto finalize;
                 }
             default:
@@ -261,12 +303,9 @@ private:
             return nullptr;
         }
 
-        // 结束函数定义
         cc.end_func();
-
         cc.finalize();
 
-        // 检查 CodeHolder 是否包含任何代码
         if (code.sections().size() == 0 || code.sections()[0] == nullptr || code.sections()[0]->buffer_size() == 0)
         {
             debug_log("JIT 编译失败: 未生成代码");
@@ -277,11 +316,9 @@ private:
         err = rt.add(&fn, &code);
         if (err != Error::kOk)
         {
-            std::cout << "JIT compilation failed during runtime registration: " << DebugUtils::error_as_string(err) <<
-                std::endl;
+            std::cout << "JIT compilation failed during runtime registration: " << DebugUtils::error_as_string(err) << std::endl;
             return nullptr;
         }
-        debug_log("JIT 编译完成");
         return fn;
     }
 };

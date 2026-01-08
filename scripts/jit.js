@@ -24,3 +24,9 @@ for (var i = 0; i < 1000; i++) {
     sum += 1;
 }
 println("sum=" + sum);
+sum *= 2;
+println("sum=" + sum);
+sum /= 4;
+println("sum=" + sum);
+sum -= 10;
+println("sum=" + sum);

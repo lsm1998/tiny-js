@@ -3,6 +3,8 @@
 #include "scanner.h"
 #include <iostream>
 
+#include "compiler.h"
+
 constexpr auto SCRIPT = R"(
     function add(a, b) {
     return a + b;
@@ -24,5 +26,13 @@ int main()
     Parser parser(tokens);
 
     const auto stmts = parser.parse();
+
+    VM vm;
+    Compiler compiler(vm);
+    ObjFunction* function = compiler.compile(stmts);
+    for (const auto& byte : function->chunk.code)
+    {
+        std::cout << opCodeNames[byte] << "\n";
+    }
     return 0;
 }

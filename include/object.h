@@ -43,42 +43,117 @@ struct Chunk
 
 enum class OpCode : uint8_t
 {
+    // 加载常量
     OP_CONSTANT,
+    // 加载null
     OP_NIL,
+    // 加载布尔值真
     OP_TRUE,
+    // 加载布尔值假
     OP_FALSE,
+    // 弹出栈顶
     OP_POP,
+    // 读取局部变量
     OP_GET_LOCAL,
+    // 设置局部变量
     OP_SET_LOCAL,
+    // 读取全局变量
     OP_GET_GLOBAL,
+    // 定义全局变量
     OP_DEFINE_GLOBAL,
+    // 设置全局变量
     OP_SET_GLOBAL,
+    // 读取上值
     OP_GET_UPVALUE,
+    // 设置上值
     OP_SET_UPVALUE,
+    // 相等比较
     OP_EQUAL,
+    // 大于比较
     OP_GREATER,
+    // 小于比较
     OP_LESS,
+    // 加法
     OP_ADD,
+    // 减法
     OP_SUB,
+    // 乘法
     OP_MUL,
+    // 除法
     OP_DIV,
+    // 逻辑非
     OP_NOT,
+    // 取负
     OP_NEGATE,
+    // 无条件跳转
     OP_JUMP,
+    // 条件跳转
     OP_JUMP_IF_FALSE,
+    // 循环跳转
     OP_LOOP,
+    // 函数调用
     OP_CALL,
+    // 创建闭包
     OP_CLOSURE,
+    // 关闭上值
     OP_CLOSE_UPVALUE,
+    // 函数返回
     OP_RETURN,
+    // 构建列表
     OP_BUILD_LIST,
+    // 获取下标
     OP_GET_SUBSCRIPT,
+    // 设置下标
     OP_SET_SUBSCRIPT,
+    // 定义全局常量
     OP_DEFINE_GLOBAL_CONST,
+    // 定义类
     OP_CLASS,
+    // 获取属性
     OP_GET_PROPERTY,
+    // 设置属性
     OP_SET_PROPERTY,
+    // 方法定义
     OP_METHOD,
+};
+
+static constexpr std::array<std::string_view, 36> opCodeNames = {
+    "OP_CONSTANT",
+    "OP_NIL",
+    "OP_TRUE",
+    "OP_FALSE",
+    "OP_POP",
+    "OP_GET_LOCAL",
+    "OP_SET_LOCAL",
+    "OP_GET_GLOBAL",
+    "OP_DEFINE_GLOBAL",
+    "OP_SET_GLOBAL",
+    "OP_GET_UPVALUE",
+    "OP_SET_UPVALUE",
+    "OP_EQUAL",
+    "OP_GREATER",
+    "OP_LESS",
+    "OP_ADD",
+    "OP_SUB",
+    "OP_MUL",
+    "OP_DIV",
+    "OP_NOT",
+    "OP_NEGATE",
+    "OP_JUMP",
+    "OP_JUMP_IF_FALSE",
+    "OP_LOOP",
+    "OP_CALL",
+    "OP_CLOSURE",
+    "OP_CLOSE_UPVALUE",
+    "OP_RETURN",
+    "OP_BUILD_LIST",
+    "OP_GET_SUBSCRIPT",
+    "OP_SET_SUBSCRIPT",
+    "OP_DEFINE_GLOBAL_CONST",
+    "OP_CLASS",
+    "OP_GET_PROPERTY",
+    "OP_SET_PROPERTY",
+    "OP_METHOD"
 };
 
 struct Obj
