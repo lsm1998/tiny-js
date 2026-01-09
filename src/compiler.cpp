@@ -379,6 +379,10 @@ void Compiler::compileExpr(const std::shared_ptr<Expr>& expr)
         for (const auto& a : new_expr->args) compileExpr(a);
         emitBytes(static_cast<uint8_t>(OpCode::OP_NEW), static_cast<uint8_t>(new_expr->args.size()));
     }
+    else if (const auto func_expr = std::dynamic_pointer_cast<FunctionExpr>(expr))
+    {
+        compileFunctionExpression(func_expr);
+    }
     else if (const auto list_expr = std::dynamic_pointer_cast<ListExpr>(expr))
     {
         for (auto& element : list_expr->elements)
@@ -458,5 +462,68 @@ void Compiler::compileExpr(const std::shared_ptr<Expr>& expr)
             if (update->isIncrement) emitByte(static_cast<uint8_t>(OpCode::OP_SUB)); // i++: new - 1 = old
             else emitByte(static_cast<uint8_t>(OpCode::OP_ADD)); // i--: new + 1 = old
         }
+    }
+}
+
+void Compiler::compileFunctionExpression(const std::shared_ptr<FunctionExpr>& expr)
+{
+    auto* next = new CompilerState();
+    next->enclosing = current;
+    next->function = vm.allocate<ObjFunction>();
+    vm.tempRoots.push_back(next->function);
+
+    // 设置函数基本信息
+    if (!expr->name.lexeme.empty())
+    {
+        next->function->name = expr->name.lexeme;
+    }
+    else
+    {
+        next->function->name = "<anonymous>";
+    }
+    next->function->arity = static_cast<int>(expr->params.size());
+
+    next->locals.push_back({"", 0, false, false});
+
+    current = next;
+    current->scopeDepth++;
+
+    for (const auto& p : expr->params)
+    {
+        current->locals.push_back({p.lexeme, current->scopeDepth, false, false});
+    }
+
+    bool hasReturn = false;
+    for (auto& b : expr->body)
+    {
+        if (std::dynamic_pointer_cast<ReturnStmt>(b))
+        {
+            hasReturn = true;
+        }
+        compileStmt(b);
+    }
+
+    // 如果没有return，添加隐式return nil
+    if (!hasReturn)
+    {
+        emitByte(static_cast<uint8_t>(OpCode::OP_NIL));
+        emitByte(static_cast<uint8_t>(OpCode::OP_RETURN));
+    }
+
+    ObjFunction* f = current->function;
+    const auto ups = current->upvalues;
+
+    vm.tempRoots.pop_back();
+
+    current = current->enclosing;
+    delete next;
+
+    const int idx = currentChunk()->addConstant(f);
+    emitBytes(static_cast<uint8_t>(OpCode::OP_CLOSURE), static_cast<uint8_t>(idx));
+
+    for (const auto& u : ups)
+    {
+        emitByte(u.isLocal ? 1 : 0);
+        emitByte(u.index);
     }
 }

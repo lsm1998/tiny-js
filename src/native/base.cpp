@@ -270,15 +270,35 @@ Value nativeSetTimeout(VM& vm, int argc, const Value* args)
     {
         throw std::runtime_error("setTimeout requires a function and a delay in milliseconds.");
     }
-    auto* callback = dynamic_cast<ObjClosure*>(std::get<Obj*>(args[0]));
-    const int delayMs = static_cast<int>(std::get<double>(args[1]));
 
-    // 在新线程中等待指定时间后调用回调函数
-    std::thread([callback, delayMs, &vm]()
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
-        vm.callAndRun(callback);
-    }).detach();
+        auto* callback = dynamic_cast<ObjClosure*>(std::get<Obj*>(args[0]));
+        const int delayMs = static_cast<int>(std::get<double>(args[1]));
+        std::future<void> future = std::async(std::launch::async, [callback, delayMs]()
+        {
+            // 等待指定的延迟
+            std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+
+            // 创建一个新的 VM 实例来执行回调
+            VM callbackVm;
+            callbackVm.initModule();
+            callbackVm.registerNative();
+            callbackVm.enableJIT(false);
+
+            try
+            {
+                callbackVm.stack.emplace_back(callback);
+                callbackVm.frames.push_back({callback, callback->function->chunk.code.data(), 0});
+                callbackVm.run();
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << "Error in setTimeout callback: " << e.what() << std::endl;
+            }
+        });
+        std::lock_guard lock(vm.asyncTasksMutex);
+        vm.asyncTasks.push_back(std::move(future));
+    }
 
     return std::monostate{};
 }

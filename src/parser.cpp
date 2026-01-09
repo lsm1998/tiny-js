@@ -358,7 +358,7 @@ std::shared_ptr<Expr> Parser::unary()
         const auto right = primary();
         if (const auto var = std::dynamic_pointer_cast<Variable>(right))
         {
-            bool isInc = (op.type == TokenType::PLUS_PLUS);
+            bool isInc = op.type == TokenType::PLUS_PLUS;
             return std::make_shared<UpdateExpr>(var->name, isInc, false);
         }
         throw std::runtime_error("[" + filename + ":" + std::to_string(op.line) + "] Error: Invalid target for prefix update.");
@@ -456,6 +456,25 @@ std::shared_ptr<Expr> Parser::primary()
         }
         consume(TokenType::RIGHT_BRACKET, "Expect ']' after list.");
         return std::make_shared<ListExpr>(elements);
+    }
+    if (match(TokenType::FUN))
+    {
+        auto name = Token{}; // 空名称表示匿名函数
+        if (check(TokenType::IDENTIFIER))
+        {
+            name = consume(TokenType::IDENTIFIER, "Expect function name.");
+        }
+        consume(TokenType::LEFT_PAREN, "Expect '('.");
+        std::vector<Token> params;
+        if (!check(TokenType::RIGHT_PAREN))
+        {
+            do { params.push_back(consume(TokenType::IDENTIFIER, "param")); }
+            while (match(TokenType::COMMA));
+        }
+        consume(TokenType::RIGHT_PAREN, "Expect ')'.");
+        consume(TokenType::LEFT_BRACE, "Expect '{'.");
+        const auto body = std::static_pointer_cast<BlockStmt>(block())->statements;
+        return std::make_shared<FunctionExpr>(name, params, body);
     }
     const auto prev = previous();
     throw std::runtime_error("[" + filename + ":" + std::to_string(prev.line) + "] Error: Expect expression.");

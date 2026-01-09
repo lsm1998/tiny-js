@@ -1062,9 +1062,25 @@ void VM::runWithFile(const std::string& filename)
         Compiler compiler(*this);
         ObjFunction* script = compiler.compile(stmts);
         this->interpret(script);
+
+        // 等待所有异步任务完成
+        waitForAsyncTasks();
     }
     else
     {
         std::cerr << "Could not read file: " << filename << std::endl;
     }
+}
+
+void VM::waitForAsyncTasks()
+{
+    std::lock_guard lock(asyncTasksMutex);
+    for (auto& task : asyncTasks)
+    {
+        if (task.valid())
+        {
+            task.wait();
+        }
+    }
+    asyncTasks.clear();
 }

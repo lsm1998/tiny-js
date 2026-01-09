@@ -102,6 +102,18 @@ struct NewExpr : Expr
     }
 };
 
+// 匿名函数表达式
+struct FunctionExpr : Expr
+{
+    Token name; // 可选的函数名
+    std::vector<Token> params;
+    std::vector<std::shared_ptr<Stmt>> body;
+
+    FunctionExpr(Token n, auto p, auto b) : name(std::move(n)), params(p), body(b)
+    {
+    }
+};
+
 // 自增自减表达式
 struct UpdateExpr : Expr
 {

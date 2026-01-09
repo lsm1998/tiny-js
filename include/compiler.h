@@ -66,7 +66,11 @@ class Compiler
     // 解析上值，返回上值在上值列表中的位置，找不到返回-1
     static int resolveUpvalue(CompilerState* s, std::string& n);
 
+    // 编译函数声明
     void compileFunction(const std::shared_ptr<FunctionStmt>& s, bool isMethod);
+
+    // 编译匿名函数表达式
+    void compileFunctionExpression(const std::shared_ptr<FunctionExpr>& expr);
 
 public:
     explicit Compiler(VM& v) : vm(v)

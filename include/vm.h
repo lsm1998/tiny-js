@@ -2,15 +2,20 @@
 #define TINY_JS_VM_H
 
 #include "object.h"
+#include "jit.h"
 #include <map>
 #include <unordered_set>
+#include <future>
+#include <mutex>
 
-#include "jit.h"
-
+// 调用栈帧结构体
 struct CallFrame
 {
+    // 执行的闭包
     ObjClosure* closure;
+    // 指令指针
     uint8_t* ip;
+    // 栈起始位置
     int slots;
 };
 
@@ -63,6 +68,10 @@ public:
 
     // JIT 是否启用
     bool jitEnabled{true};
+
+    // 异步任务列表（用于 setTimeout 等）
+    std::vector<std::future<void>> asyncTasks;
+    std::mutex asyncTasksMutex;
 
     VM()
     {
@@ -139,6 +148,9 @@ public:
 
     // 从文件运行脚本
     void runWithFile(const std::string& filename);
+
+    // 等待所有异步任务完成
+    void waitForAsyncTasks();
 
     // 启用或禁用 JIT 编译
     void enableJIT(const bool enable = true) { jitEnabled = enable; }
