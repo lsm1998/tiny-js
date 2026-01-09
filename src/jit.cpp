@@ -4,6 +4,8 @@
 #include "asmjit/x86/x86compiler.h"
 #include "asmjit/arm/a64compiler.h"
 
+constexpr auto ZERO_VALUE = 0.0;
+
 JitCompiler::JitFn JitCompiler::compile(const Chunk* chunk)
 {
     CodeHolder code;
@@ -64,7 +66,17 @@ JitCompiler::JitFn JitCompiler::compileX86(const Chunk* chunk, CodeHolder& code)
             {
                 const uint8_t idx = chunk->code[ip++];
                 x86::Vec xmm0 = cc.new_xmm();
-                cc.movsd(xmm0, x86::ptr(args, idx * 8));
+                // 索引 0 是返回值位置，参数从索引 1 开始
+                if (idx > 0)
+                {
+                    cc.movsd(xmm0, x86::ptr(args, (idx - 1) * 8));
+                }
+                else
+                {
+                    x86::Gp temp = cc.new_gp64();
+                    cc.mov(temp, *reinterpret_cast<const uint64_t*>(&ZERO_VALUE));
+                    cc.movq(xmm0, temp);
+                }
                 cc.sub(x86::rsp, 8);
                 cc.movsd(x86::Mem(x86::rsp, 0), xmm0);
                 break;
@@ -75,7 +87,11 @@ JitCompiler::JitFn JitCompiler::compileX86(const Chunk* chunk, CodeHolder& code)
                 x86::Vec xmm0 = cc.new_xmm();
                 cc.movsd(xmm0, x86::Mem(x86::rsp, 0));
                 cc.add(x86::rsp, 8);
-                cc.movsd(x86::ptr(args, idx * 8), xmm0);
+                // 索引 0 是返回值位置，参数从索引 1 开始
+                if (idx > 0)
+                {
+                    cc.movsd(x86::ptr(args, (idx - 1) * 8), xmm0);
+                }
                 break;
             }
         case static_cast<uint8_t>(OpCode::OP_ADD):
