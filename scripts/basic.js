@@ -104,4 +104,21 @@ println("8. 递归函数测试:");
 println("factorial(5) = " + factorial(5));
 println("======================");
 
+
+class Person {
+    constructor(name, age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    introduce() {
+        return "My name is " + this.name + " and I am " + this.age + " years old.";
+    }
+}
+
+println("9. 类和对象测试:");
+let person = new Person("Alice", 30);
+println(person.introduce());
+println("======================");
+
 println("=== 所有基础测试完成 ===");

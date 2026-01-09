@@ -21,11 +21,14 @@ class Scanner
         {"null", TokenType::NULLPTR},
         {"or", TokenType::OR},
         {"return", TokenType::RETURN},
+        {"super", TokenType::SUPER},
+        {"this", TokenType::THIS},
         {"true", TokenType::TRUE},
         {"var", TokenType::VAR},
         {"let", TokenType::VAR},
         {"while", TokenType::WHILE},
         {"const", TokenType::CONST},
+        {"new", TokenType::NEW}
     };
 
 public:

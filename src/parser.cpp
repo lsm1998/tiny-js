@@ -175,12 +175,12 @@ std::shared_ptr<Expr> Parser::expression()
 
 std::shared_ptr<Expr> Parser::conditional()
 {
-    auto e = logicalOr();
+    auto e = assignment();
     if (match(TokenType::QUESTION))
     {
-        auto thenExpr = assignment(); // 三元运算符的then部分可以是任意表达式
+        auto thenExpr = assignment();
         consume(TokenType::COLON, "Expect ':' after then part of conditional expression.");
-        auto elseExpr = conditional(); // 三元运算符的else部分可以是另一个条件表达式（支持嵌套）
+        auto elseExpr = conditional();
         return std::make_shared<Ternary>(e, thenExpr, elseExpr);
     }
     return e;
@@ -210,7 +210,7 @@ std::shared_ptr<Expr> Parser::logicalAnd()
 
 std::shared_ptr<Expr> Parser::assignment()
 {
-    auto e = equality();
+    auto e = logicalOr();
     if (match(TokenType::EQUAL))
     {
         Token eq = previous();
@@ -342,7 +342,7 @@ std::shared_ptr<Expr> Parser::factor()
     auto e = unary();
     while (match(TokenType::SLASH) || match(TokenType::STAR) || match(TokenType::PERCENT))
     {
-        Token op = previous(); // Save operator token BEFORE calling unary()
+        Token op = previous();
         e = std::make_shared<Binary>(e, op, unary());
     }
     return e;
