@@ -373,6 +373,12 @@ void Compiler::compileExpr(const std::shared_ptr<Expr>& expr)
         for (const auto& a : call->args) compileExpr(a);
         emitBytes(static_cast<uint8_t>(OpCode::OP_CALL), static_cast<uint8_t>(call->args.size()));
     }
+    else if (const auto new_expr = std::dynamic_pointer_cast<NewExpr>(expr))
+    {
+        compileExpr(new_expr->callee);
+        for (const auto& a : new_expr->args) compileExpr(a);
+        emitBytes(static_cast<uint8_t>(OpCode::OP_NEW), static_cast<uint8_t>(new_expr->args.size()));
+    }
     else if (const auto list_expr = std::dynamic_pointer_cast<ListExpr>(expr))
     {
         for (auto& element : list_expr->elements)

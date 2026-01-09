@@ -125,9 +125,11 @@ enum class OpCode : uint8_t
     OP_AND,
     // 逻辑或
     OP_OR,
+    // new 表达式
+    OP_NEW,
 };
 
-static constexpr std::array<std::string_view, 41> opCodeNames = {
+static constexpr std::array<std::string_view, 42> opCodeNames = {
     "OP_CONSTANT",
     "OP_NIL",
     "OP_TRUE",
@@ -168,7 +170,8 @@ static constexpr std::array<std::string_view, 41> opCodeNames = {
     "OP_METHOD",
     "OP_TERNARY",
     "OP_AND",
-    "OP_OR"
+    "OP_OR",
+    "OP_NEW"
 };
 
 struct Obj

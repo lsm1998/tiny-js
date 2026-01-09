@@ -91,6 +91,17 @@ struct Call : Expr
     }
 };
 
+// new 表达式
+struct NewExpr : Expr
+{
+    std::shared_ptr<Expr> callee;
+    std::vector<std::shared_ptr<Expr>> args;
+
+    NewExpr(auto c, auto a) : callee(c), args(a)
+    {
+    }
+};
+
 // 自增自减表达式
 struct UpdateExpr : Expr
 {

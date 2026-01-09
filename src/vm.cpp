@@ -750,6 +750,68 @@ void VM::run()
             call_end:
                 break;
             }
+        case OpCode::OP_NEW:
+            {
+                int argc = READ_BYTE();
+                int calleeSlot = stack.size() - 1 - argc;
+
+                // 获取类名
+                Value callee = stack[calleeSlot];
+                if (!std::holds_alternative<Obj*>(callee))
+                {
+                    runtimeError("Class name must be a class object.");
+                    return;
+                }
+
+                auto obj = std::get<Obj*>(callee);
+                if (!isObjType(callee, ObjType::CLASS))
+                {
+                    runtimeError("Can only use 'new' with a class.");
+                    return;
+                }
+
+                auto* klass = dynamic_cast<ObjClass*>(obj);
+
+                // 创建实例
+                ObjInstance* instance;
+                if (klass->isNative)
+                {
+                    instance = allocate<ObjNativeInstance>(klass);
+                }
+                else
+                {
+                    instance = allocate<ObjInstance>(klass);
+                }
+
+                // 将实例替换掉栈上的类名
+                stack[calleeSlot] = instance;
+
+                // 调用 constructor 方法
+                if (klass->nativeMethods.contains("constructor"))
+                {
+                    ObjNative* init = klass->nativeMethods["constructor"];
+                    Value* args = &stack[calleeSlot + 1];
+                    // 调用原生 init，args[-1] 是刚创建的 instance
+                    init->function(argc, args);
+
+                    stack.resize(calleeSlot);
+                    stack.emplace_back(instance); // 构造函数返回实例
+                }
+                else if (klass->methods.contains("constructor"))
+                {
+                    ObjClosure* init = klass->methods["constructor"];
+                    // 创建帧，开始执行 init 方法
+                    frames.push_back({init, init->function->chunk.code.data(), calleeSlot});
+                    frame = &frames.back();
+                }
+                else if (argc != 0)
+                {
+                    runtimeError(("Expected 0 arguments but got " + std::to_string(argc) + ".").c_str());
+                    return;
+                }
+
+                break;
+            }
         case OpCode::OP_CLOSURE:
             {
                 auto* func = dynamic_cast<ObjFunction*>(std::get<Obj*>(READ_CONST()));

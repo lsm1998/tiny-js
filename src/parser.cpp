@@ -361,7 +361,24 @@ std::shared_ptr<Expr> Parser::unary()
             bool isInc = (op.type == TokenType::PLUS_PLUS);
             return std::make_shared<UpdateExpr>(var->name, isInc, false);
         }
-        throw std::runtime_error("Invalid target for prefix update.");
+        throw std::runtime_error("[" + filename + ":" + std::to_string(op.line) + "] Error: Invalid target for prefix update.");
+    }
+
+    if (match(TokenType::NEW))
+    {
+        // 解析 new 表达式: new ClassName(args)
+        auto callee = primary();
+        if (match(TokenType::LEFT_PAREN))
+        {
+            std::vector<std::shared_ptr<Expr>> args;
+            if (!check(TokenType::RIGHT_PAREN))
+            {
+                do args.push_back(expression()); while (match(TokenType::COMMA));
+            }
+            consume(TokenType::RIGHT_PAREN, "Expect ')'.");
+            return std::make_shared<NewExpr>(callee, args);
+        }
+        throw std::runtime_error("Expect '(' after class name in 'new' expression.");
     }
 
     return call();
