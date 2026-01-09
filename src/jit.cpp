@@ -53,10 +53,17 @@ JitCompiler::JitFn JitCompiler::compileX86(const Chunk* chunk, CodeHolder& code)
         case static_cast<uint8_t>(OpCode::OP_CONSTANT):
             {
                 const uint8_t idx = chunk->code[ip++];
-                const double value = std::get<double>(chunk->constants[idx]);
+                const double* value = std::get_if<double>(&chunk->constants[idx]);
+                if (!value)
+                {
+                    jitFailed = true;
+                    debug_log("JIT 暂不支持非 double 类型的常量");
+                    break;
+                }
+                const double constValue = *value;
                 x86::Vec xmm0 = cc.new_xmm();
                 x86::Gp temp = cc.new_gp64();
-                cc.mov(temp, *reinterpret_cast<const uint64_t*>(&value));
+                cc.mov(temp, *reinterpret_cast<const uint64_t*>(&constValue));
                 cc.movq(xmm0, temp);
                 cc.sub(x86::rsp, 8);
                 cc.movsd(x86::Mem(x86::rsp, 0), xmm0);
@@ -272,9 +279,15 @@ JitCompiler::JitFn JitCompiler::compileAArch64(const Chunk* chunk, CodeHolder& c
         case static_cast<uint8_t>(OpCode::OP_CONSTANT):
             {
                 const uint8_t idx = chunk->code[ip++];
-                const double value = std::get<double>(chunk->constants[idx]);
+                const double* value = std::get_if<double>(&chunk->constants[idx]);
+                if (!value)
+                {
+                    jitFailed = true;
+                    debug_log("JIT 暂不支持非 double 类型的常量");
+                    break;
+                }
                 auto d0 = cc.new_vec_d();
-                cc.fmov(d0, value);
+                cc.fmov(d0, *value);
                 cc.str(d0, a64::ptr(a64::regs::sp, stackOffset));
                 cc.add(stackOffset, stackOffset, 8);
                 break;
