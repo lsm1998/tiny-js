@@ -29,6 +29,10 @@ enum class TokenType
     SLASH,
     // 星号
     STAR,
+    // 百分号
+    PERCENT,
+    // 百分号等于
+    PERCENT_EQUAL,
     // 感叹号
     BANG,
     // 等于号

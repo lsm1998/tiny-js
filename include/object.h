@@ -81,6 +81,8 @@ enum class OpCode : uint8_t
     OP_MUL,
     // 除法
     OP_DIV,
+    // 取余
+    OP_MOD,
     // 逻辑非
     OP_NOT,
     // 取负
@@ -117,7 +119,7 @@ enum class OpCode : uint8_t
     OP_METHOD,
 };
 
-static constexpr std::array<std::string_view, 36> opCodeNames = {
+static constexpr std::array<std::string_view, 37> opCodeNames = {
     "OP_CONSTANT",
     "OP_NIL",
     "OP_TRUE",
@@ -137,6 +139,7 @@ static constexpr std::array<std::string_view, 36> opCodeNames = {
     "OP_SUB",
     "OP_MUL",
     "OP_DIV",
+    "OP_MOD",
     "OP_NOT",
     "OP_NEGATE",
     "OP_JUMP",

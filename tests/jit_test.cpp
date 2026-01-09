@@ -58,6 +58,28 @@ void testWithChunk()
     {
         std::cerr << "JIT 编译失败" << std::endl;
     }
+
+    // 测试 3: 10 % 3 = 1
+    Chunk chunk3;
+    chunk3.write(static_cast<uint8_t>(OpCode::OP_CONSTANT));
+    chunk3.write(static_cast<uint8_t>(chunk3.addConstant(10.0)));
+    chunk3.write(static_cast<uint8_t>(OpCode::OP_CONSTANT));
+    chunk3.write(static_cast<uint8_t>(chunk3.addConstant(3.0)));
+    chunk3.write(static_cast<uint8_t>(OpCode::OP_MOD));
+    chunk3.write(static_cast<uint8_t>(OpCode::OP_RETURN));
+
+    std::cout << std::endl;
+    std::cout << "=== 测试 3: 10 % 3 ===" << std::endl;
+    if (const auto func3 = compiler.compile(&chunk3))
+    {
+        double args[1] = {0.0};
+        const double result3 = func3(args);
+        std::cout << "JIT 执行结果: " << result3 << std::endl;
+    }
+    else
+    {
+        std::cerr << "JIT 编译失败" << std::endl;
+    }
 }
 
 void testWithScript()

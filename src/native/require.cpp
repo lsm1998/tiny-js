@@ -31,7 +31,7 @@ Value nativeRequire(VM& vm, const int argc, const Value* args)
         return std::monostate{};
     }
 
-    ObjFunction* moduleScript = vm.compilerHook(source);
+    ObjFunction* moduleScript = vm.compilerHook(source, path);
     if (!moduleScript) return std::monostate{};
 
     auto* moduleClosure = vm.allocate<ObjClosure>(moduleScript);

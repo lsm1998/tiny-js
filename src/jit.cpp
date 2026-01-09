@@ -162,6 +162,30 @@ JitCompiler::JitFn JitCompiler::compileX86(const Chunk* chunk, CodeHolder& code)
                 cc.movsd(x86::Mem(x86::rsp, 0), xmm1);
                 break;
             }
+        case static_cast<uint8_t>(OpCode::OP_MOD):
+            {
+                debug_log("处理 OP_MOD");
+                x86::Vec xmm0 = cc.new_xmm();
+                x86::Vec xmm1 = cc.new_xmm();
+                x86::Vec xmm2 = cc.new_xmm();
+                // 从栈中弹出两个操作数
+                cc.movsd(xmm0, x86::Mem(x86::rsp, 0));
+                cc.add(x86::rsp, 8);
+                cc.movsd(xmm1, x86::Mem(x86::rsp, 0));
+                cc.add(x86::rsp, 8);
+                // 取余 (a % b)
+                cc.xorpd(xmm2, xmm2); // 清零
+                cc.divsd(xmm1, xmm0); // 除法
+                cc.cvtsd2si(x86::rax, xmm1); // 转换为整数
+                cc.cvtsi2sd(xmm2, x86::rax); // 转换回浮点数
+                cc.mulsd(xmm2, xmm0); // 乘法
+                cc.subsd(xmm1, xmm2); // 减法
+                cc.mulsd(xmm1, xmm0); // 乘法得到余数
+                // 压回栈
+                cc.sub(x86::rsp, 8);
+                cc.movsd(x86::Mem(x86::rsp, 0), xmm1);
+                break;
+            }
         case static_cast<uint8_t>(OpCode::OP_RETURN):
             {
                 debug_log("处理 OP_RETURN");
@@ -337,6 +361,29 @@ JitCompiler::JitFn JitCompiler::compileAArch64(const Chunk* chunk, CodeHolder& c
                 cc.sub(stackOffset, stackOffset, 8);
                 cc.ldr(d1, a64::ptr(a64::regs::sp, stackOffset));
                 cc.fdiv(d1, d1, d0); // 计算 a / b
+                cc.str(d1, a64::ptr(a64::regs::sp, stackOffset));
+                cc.add(stackOffset, stackOffset, 8);
+                break;
+            }
+        case static_cast<uint8_t>(OpCode::OP_MOD):
+            {
+                debug_log("处理 OP_MOD");
+                auto d0 = cc.new_vec_d();
+                auto d1 = cc.new_vec_d();
+                auto d2 = cc.new_vec_d();
+                auto x0 = cc.new_gp64();
+                // 从栈中弹出两个操作数
+                cc.sub(stackOffset, stackOffset, 8);
+                cc.ldr(d0, a64::ptr(a64::regs::sp, stackOffset)); // 弹出 b
+                cc.sub(stackOffset, stackOffset, 8);
+                cc.ldr(d1, a64::ptr(a64::regs::sp, stackOffset)); // 弹出 a
+                // 取余 (a % b)
+                cc.fdiv(d2, d1, d0); // 除法
+                cc.fcvtzs(x0, d2); // 转换为整数
+                cc.sxtw(x0, x0.w()); // 符号扩展
+                cc.scvtf(d2, x0); // 转换回浮点数
+                cc.fmul(d2, d2, d0); // 乘法
+                cc.fsub(d1, d1, d2); // 减法得到余数
                 cc.str(d1, a64::ptr(a64::regs::sp, stackOffset));
                 cc.add(stackOffset, stackOffset, 8);
                 break;

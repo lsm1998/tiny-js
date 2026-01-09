@@ -46,7 +46,9 @@ Token Parser::previous()
 Token Parser::consume(const TokenType t, const std::string& m)
 {
     if (check(t)) return advance();
-    throw std::runtime_error(m);
+    const Token wrongToken = peek();
+    const std::string message = "[" + filename + ":" + std::to_string(wrongToken.line) + "] Error: " + m;
+    throw std::runtime_error(message);
 }
 
 std::shared_ptr<Stmt> Parser::declaration()
@@ -249,6 +251,20 @@ std::shared_ptr<Expr> Parser::assignment()
         }
         throw std::runtime_error("Invalid target for '/='.");
     }
+    if (match(TokenType::PERCENT_EQUAL))
+    {
+        auto v = assignment();
+        if (const auto var = std::dynamic_pointer_cast<Variable>(e))
+        {
+            auto right = std::make_shared<Binary>(
+                e,
+                Token{TokenType::PERCENT, "%", var->name.line, {}},
+                v
+            );
+            return std::make_shared<Assign>(var->name, right);
+        }
+        throw std::runtime_error("Invalid target for '%='.");
+    }
     return e;
 }
 
@@ -288,7 +304,7 @@ std::shared_ptr<Expr> Parser::term()
 std::shared_ptr<Expr> Parser::factor()
 {
     auto e = unary();
-    while (match(TokenType::SLASH) || match(TokenType::STAR))
+    while (match(TokenType::SLASH) || match(TokenType::STAR) || match(TokenType::PERCENT))
     {
         Token op = previous();  // Save operator token BEFORE calling unary()
         e = std::make_shared<Binary>(e, op, unary());

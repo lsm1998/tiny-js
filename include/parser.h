@@ -11,9 +11,11 @@ class Parser
     std::vector<Token> tokens;
     // 当前解析到的token索引
     int current = 0;
+    // 当前解析的文件名
+    std::string filename;
 
 public:
-    explicit Parser(const std::vector<Token>& t) : tokens(t)
+    explicit Parser(const std::vector<Token>& t,std::string filename = "<script>") : tokens(t), filename(std::move(filename))
     {
     }
 

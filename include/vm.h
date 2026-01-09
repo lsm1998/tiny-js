@@ -32,7 +32,7 @@ public:
 
     std::map<std::string, Value> modules;
 
-    std::function<ObjFunction*(std::string)> compilerHook;
+    std::function<ObjFunction*(std::string, std::string)> compilerHook;
 
     // 数组原生方法
     std::map<std::string, ObjNative*> listMethods;

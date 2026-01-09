@@ -10,11 +10,11 @@
 
 void VM::initModule()
 {
-    this->compilerHook = [&](const std::string& source) -> ObjFunction*
+    this->compilerHook = [&](const std::string& source,const std::string& filename) -> ObjFunction*
     {
         Scanner scanner(source);
         const auto tokens = scanner.scanTokens();
-        Parser parser(tokens);
+        Parser parser(tokens,filename);
         try
         {
             const auto stmts = parser.parse();
@@ -505,6 +505,13 @@ void VM::run()
                 stack.emplace_back(std::get<double>(stack.back()) / b);
                 break;
             }
+        case OpCode::OP_MOD:
+            {
+                double b = std::get<double>(stack.back());
+                stack.pop_back();
+                stack.emplace_back(fmod(std::get<double>(stack.back()), b));
+                break;
+            }
 
         case OpCode::OP_JUMP:
             {
@@ -914,7 +921,7 @@ void VM::runWithFile(const std::string& filename)
     {
         Scanner scanner(source);
         const auto tokens = scanner.scanTokens();
-        Parser parser(tokens);
+        Parser parser(tokens, filename);
         const auto stmts = parser.parse();
         Compiler compiler(*this);
         ObjFunction* script = compiler.compile(stmts);

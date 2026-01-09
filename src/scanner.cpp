@@ -64,6 +64,12 @@ void Scanner::scanToken(std::vector<Token>& t)
         else
             addToken(t, TokenType::PLUS);
         break;
+    case '%':
+        if (match('='))
+            addToken(t, TokenType::PERCENT_EQUAL);
+        else
+            addToken(t, TokenType::PERCENT);
+        break;
     case ';': addToken(t, TokenType::SEMICOLON);
         break;
     case '*':
