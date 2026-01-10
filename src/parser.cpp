@@ -269,7 +269,7 @@ std::shared_ptr<Expr> Parser::assignment()
         {
             auto right = std::make_shared<Binary>(
                 e,
-                Token{TokenType::PLUS, "-", var->name.line, {}},
+                Token{TokenType::MINUS, "-", var->name.line, {}},
                 v
             );
             return std::make_shared<Assign>(var->name, right);

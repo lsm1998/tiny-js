@@ -975,8 +975,6 @@ void VM::run()
                 }
                 stack.push_back(res);
                 frame = &frames.back();
-                std::cout << "OP_RETURN: function returned, stack.size() = " << stack.size() << ", frames.size() = " <<
-                    frames.size() << std::endl;
                 break;
             }
         case OpCode::OP_BUILD_LIST:
