@@ -472,7 +472,6 @@ void VM::run()
                     return;
                 }
                 globals[n] = stack.back();
-                stack.pop_back();  // 弹出值，赋值表达式不留值
                 break;
             }
         case OpCode::OP_GET_UPVALUE: stack.push_back(*frame->closure->upvalues[READ_BYTE()]->location);

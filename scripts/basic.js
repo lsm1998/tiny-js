@@ -1,6 +1,6 @@
 // 1. 变量声明和类型测试
 println("1. 变量声明和类型测试:");
-let num = 10;
+var num = 10;
 const str = "Hello";
 var boolVal = true;
 
@@ -11,8 +11,8 @@ println("======================");
 
 // 2. 算术运算测试
 println("2. 算术运算测试:");
-let a = 10;
-let b = 3;
+var a = 10;
+var b = 3;
 println("加法: " + a + " + " + b + " = " + (a + b));
 println("减法: " + a + " - " + b + " = " + (a - b));
 println("乘法: " + a + " * " + b + " = " + (a * b));
@@ -22,8 +22,8 @@ println("======================");
 
 // 3. 字符串操作测试
 println("3. 字符串操作测试:");
-let s1 = "Hello";
-let s2 = "World";
+var s1 = "Hello";
+var s2 = "World";
 println("字符串拼接: " + s1 + " " + s2);
 println("字符串长度: " + s1.length);
 println("字符访问: " + s1.at(1));
@@ -32,7 +32,7 @@ println("======================");
 
 // 4. 数组测试
 println("4. 数组操作测试:");
-let arr = [1, 2, 3, 4, 5];
+var arr = [1, 2, 3, 4, 5];
 println("数组长度: " + arr.length);
 println("数组元素: " + arr);
 println("访问元素: arr[2] = " + arr.at(2));
@@ -46,33 +46,24 @@ println("======================");
 
 // 5. 条件判断测试
 println("5. 条件判断测试:");
-let x = 10;
-let y = 20;
+var x = 10;
+var y = 20;
 if (x < y) {
     println("x < y: true");
 } else {
     println("x < y: false");
 }
 
-let result = x > 5 ? "大于5" : "小于等于5";
+var result = x > 5 ? "大于5" : "小于等于5";
 println("三元运算符: " + result);
 println("======================");
 
 // 6. 循环测试
 println("6. 循环测试:");
-
-// for 循环
-println("for 循环:");
-for (let i = 0; i < 5; i++) {
-    print(i + " ");
-}
-println("======================");
-
-// while 循环
 println("while 循环:");
-let count = 0;
+var count = 0;
 while (count < 5) {
-    print(count + " ");
+    println(count);
     count++;
 }
 println("======================");
@@ -91,13 +82,13 @@ function greet(name) {
 println("add(10, 20) = " + add(10, 20));
 println("greet('World') = " + greet('World'));
 
-let multiply = (x, y) => x * y;
+var multiply = (x, y) => x * y;
 println("multiply(5, 4) = " + multiply(5, 4));
 
-let square = x => x * x;
+var square = x => x * x;
 println("square(6) = " + square(6));
 
-let noParam = () => "No parameters";
+var noParam = () => "No parameters";
 println("noParam() = " + noParam());
 
 println("======================");
@@ -127,8 +118,30 @@ class Person {
 }
 
 println("9. 类和对象测试:");
-let person = new Person("Alice", 30);
+var person = new Person("Alice", 30);
 println(person.introduce());
+println("======================");
+
+println("10. 导入导出测试:");
+
+import {PI} from "util.js";
+
+println("PI = " + PI);
+println("======================");
+
+println("11. 系统函数测试:");
+var timestamp = now();
+println("当前时间戳: " + timestamp);
+setTimeout(function () {
+    println("1秒后执行的定时任务");
+}, 1000);
+var intervalId = setInterval(() => {
+    println("每隔1秒执行的定时任务");
+}, 1000);
+setTimeout(() => {
+    clearInterval(intervalId);
+    println("已停止每隔1秒执行的定时任务");
+}, 5000);
 println("======================");
 
 println("=== 所有基础测试完成 ===");
