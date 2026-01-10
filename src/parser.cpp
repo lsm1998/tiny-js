@@ -89,7 +89,16 @@ std::shared_ptr<Stmt> Parser::varDeclaration(bool isConst)
     Token n = consume(TokenType::IDENTIFIER, "Expect var name.");
     std::shared_ptr<Expr> i = nullptr;
     if (match(TokenType::EQUAL)) i = expression();
-    consume(TokenType::SEMICOLON, "Expect ';'.");
+
+    if (std::dynamic_pointer_cast<ArrowFunctionExpr>(i))
+    {
+        match(TokenType::SEMICOLON);
+    }
+    else
+    {
+        consume(TokenType::SEMICOLON, "Expect ';'.");
+    }
+
     return std::make_shared<VarStmt>(n, i, isConst);
 }
 
@@ -308,6 +317,7 @@ std::shared_ptr<Expr> Parser::assignment()
         }
         throw std::runtime_error("Invalid target for '%='.");
     }
+
     return e;
 }
 
