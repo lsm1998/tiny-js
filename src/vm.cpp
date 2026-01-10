@@ -1120,15 +1120,28 @@ void VM::runEventLoop()
             return !eventQueue.empty();
         });
 
-        // 检查是否还有活动的 interval
+        // 检查是否还有活动的 interval 或异步任务
         bool hasActiveInterval = false;
         {
             std::lock_guard intervalLock(intervalIdsMutex);
             hasActiveInterval = !intervalIds.empty();
         }
 
-        // 如果没有任务且没有活动的 interval，退出循环
-        if (eventQueue.empty() && !hasActiveInterval)
+        bool hasRunningAsyncTasks = false;
+        {
+            std::lock_guard asyncLock(asyncTasksMutex);
+            for (const auto& task : asyncTasks)
+            {
+                if (task.valid() && task.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+                {
+                    hasRunningAsyncTasks = true;
+                    break;
+                }
+            }
+        }
+
+        // 如果没有任务、没有活动的 interval、没有运行中的异步任务，退出循环
+        if (eventQueue.empty() && !hasActiveInterval && !hasRunningAsyncTasks)
         {
             break;
         }
@@ -1144,15 +1157,22 @@ void VM::runEventLoop()
 
             try
             {
+                // 清理栈，确保没有残留值
+                size_t stackSizeBefore = stack.size();
+
                 // 在主 VM 上执行回调
                 stack.emplace_back(task.callback);
                 frames.push_back({task.callback, task.callback->function->chunk.code.data(), 0});
                 run();
+
+                // 清理栈，移除回调返回值
+                while (stack.size() > stackSizeBefore)
+                {
+                    stack.pop_back();
+                }
             }
             catch (const std::exception& e)
             {
-                std::cerr << "Error executing event task: " << e.what() << std::endl;
-
                 // 如果是 interval 任务出错，清除它
                 if (task.isInterval)
                 {
