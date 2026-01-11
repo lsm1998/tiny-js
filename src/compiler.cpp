@@ -43,15 +43,15 @@ void Compiler::emitLoop(const int start) const
 void Compiler::emitConstant(const int index) const
 {
     emitByte(static_cast<uint8_t>(OpCode::OP_CONSTANT));
-    emitByte(static_cast<uint8_t>(index >> 8 & 0xff));
-    emitByte(static_cast<uint8_t>(index & 0xff));
+    emitByte(static_cast<uint8_t>((index >> 8) & 0xFF));
+    emitByte(static_cast<uint8_t>(index & 0xFF));
 }
 
 void Compiler::emitGlobalOp(uint8_t opcode, const int constIdx) const
 {
     emitByte(opcode);
-    emitByte(static_cast<uint8_t>((constIdx >> 8) & 0xff));
-    emitByte(static_cast<uint8_t>(constIdx & 0xff));
+    emitByte(static_cast<uint8_t>((constIdx >> 8) & 0xFF));
+    emitByte(static_cast<uint8_t>(constIdx & 0xFF));
 }
 
 int Compiler::resolveLocal(const CompilerState* s, const std::string& n)
@@ -160,7 +160,7 @@ void Compiler::compileFunction(const std::shared_ptr<FunctionStmt>& s, const boo
 
     const int idx = currentChunk()->addConstant(f);
 
-    emitBytes(static_cast<uint8_t>(OpCode::OP_CLOSURE), static_cast<uint8_t>(idx));
+    emitGlobalOp(static_cast<uint8_t>(OpCode::OP_CLOSURE), idx);
 
     for (const auto& u : ups)
     {
@@ -169,7 +169,7 @@ void Compiler::compileFunction(const std::shared_ptr<FunctionStmt>& s, const boo
     }
     if (!isMethod && current->scopeDepth == 0)
     {
-        emitBytes(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL), static_cast<uint8_t>(gIdx));
+        emitGlobalOp(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL), gIdx);
     }
 }
 
@@ -222,17 +222,17 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
                 {
                     emitByte(static_cast<uint8_t>(OpCode::OP_NIL));
                 }
-                emitBytes(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL_CONST), static_cast<uint8_t>(i));
+                emitGlobalOp(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL_CONST), i);
             }
             else
             {
                 emitByte(static_cast<uint8_t>(OpCode::OP_NIL));
-                emitBytes(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL), static_cast<uint8_t>(i));
+                emitGlobalOp(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL), i);
 
                 if (var_stmt->initializer)
                 {
                     compileExpr(var_stmt->initializer);
-                    emitBytes(static_cast<uint8_t>(OpCode::OP_SET_GLOBAL), static_cast<uint8_t>(i));
+                    emitGlobalOp(static_cast<uint8_t>(OpCode::OP_SET_GLOBAL), i);
                 }
             }
         }
@@ -281,9 +281,9 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
     else if (const auto class_stmt = std::dynamic_pointer_cast<ClassStmt>(stmt))
     {
         const int nameIdx = currentChunk()->addConstant(vm.newString(class_stmt->name.lexeme));
-        emitBytes(static_cast<uint8_t>(OpCode::OP_CLASS), static_cast<uint8_t>(nameIdx));
-        emitBytes(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL), static_cast<uint8_t>(nameIdx)); // 定义类名
-        emitBytes(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), static_cast<uint8_t>(nameIdx));
+        emitGlobalOp(static_cast<uint8_t>(OpCode::OP_CLASS), nameIdx);
+        emitGlobalOp(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL), nameIdx); // 定义类名
+        emitGlobalOp(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), nameIdx);
         for (auto& method : class_stmt->methods)
         {
             const int constIdx = currentChunk()->addConstant(vm.newString(method->name.lexeme));
@@ -291,7 +291,7 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
             // 编译方法体
             compileFunction(method, true);
 
-            emitBytes(static_cast<uint8_t>(OpCode::OP_METHOD), static_cast<uint8_t>(constIdx));
+            emitGlobalOp(static_cast<uint8_t>(OpCode::OP_METHOD), constIdx);
         }
         emitByte(static_cast<uint8_t>(OpCode::OP_POP)); // 弹出类对象
     }
@@ -300,7 +300,7 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
         const int requireIdx = currentChunk()->addConstant(vm.newString("require"));
 
         // 先压入被调用者
-        emitBytes(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), static_cast<uint8_t>(requireIdx));
+        emitGlobalOp(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), requireIdx);
 
         // 再压入参数（模块路径）
         std::string modulePath = import_stmt->source.lexeme;
@@ -318,18 +318,18 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
         {
             if (i > 0)
             {
-                emitBytes(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), static_cast<uint8_t>(requireIdx));
+                emitGlobalOp(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), requireIdx);
                 emitConstant(pathIdx);
                 emitBytes(static_cast<uint8_t>(OpCode::OP_CALL), 1);
             }
 
             const auto& spec = import_stmt->specifiers[i];
             const int propNameIdx = currentChunk()->addConstant(vm.newString(spec.lexeme));
-            emitBytes(static_cast<uint8_t>(OpCode::OP_GET_PROPERTY), static_cast<uint8_t>(propNameIdx));
+            emitGlobalOp(static_cast<uint8_t>(OpCode::OP_GET_PROPERTY), propNameIdx);
 
             // 定义为全局变量
             const int globalNameIdx = currentChunk()->addConstant(vm.newString(spec.lexeme));
-            emitBytes(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL), static_cast<uint8_t>(globalNameIdx));
+            emitGlobalOp(static_cast<uint8_t>(OpCode::OP_DEFINE_GLOBAL), globalNameIdx);
         }
     }
     else if (const auto export_stmt = std::dynamic_pointer_cast<ExportStmt>(stmt))
@@ -351,7 +351,7 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
             }
 
             const int exportsIdx = currentChunk()->addConstant(vm.newString("exports"));
-            emitBytes(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), static_cast<uint8_t>(exportsIdx));
+            emitGlobalOp(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), exportsIdx);
 
             // 获取变量值
             if (localIdx != -1)
@@ -360,10 +360,10 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
             }
             else
             {
-                emitBytes(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), static_cast<uint8_t>(varNameIdx));
+                emitGlobalOp(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL), varNameIdx);
             }
 
-            emitBytes(static_cast<uint8_t>(OpCode::OP_SET_PROPERTY), static_cast<uint8_t>(varNameIdx));
+            emitGlobalOp(static_cast<uint8_t>(OpCode::OP_SET_PROPERTY), varNameIdx);
             emitByte(static_cast<uint8_t>(OpCode::OP_POP));
         }
     }
@@ -464,8 +464,8 @@ void Compiler::compileExpr(const std::shared_ptr<Expr>& expr)
         else if ((arg = resolveUpvalue(current, variable->name.lexeme)) != -1)
             emitBytes(static_cast<uint8_t>(OpCode::OP_GET_UPVALUE), static_cast<uint8_t>(arg));
         else
-            emitBytes(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL),
-                      static_cast<uint8_t>(currentChunk()->addConstant(vm.newString(variable->name.lexeme))));
+            emitGlobalOp(static_cast<uint8_t>(OpCode::OP_GET_GLOBAL),
+                      currentChunk()->addConstant(vm.newString(variable->name.lexeme)));
     }
     else if (const auto assign = std::dynamic_pointer_cast<Assign>(expr))
     {
@@ -488,8 +488,8 @@ void Compiler::compileExpr(const std::shared_ptr<Expr>& expr)
         }
         else
         {
-            emitBytes(static_cast<uint8_t>(OpCode::OP_SET_GLOBAL),
-                      static_cast<uint8_t>(currentChunk()->addConstant(vm.newString(assign->name.lexeme))));
+            emitGlobalOp(static_cast<uint8_t>(OpCode::OP_SET_GLOBAL),
+                      currentChunk()->addConstant(vm.newString(assign->name.lexeme)));
         }
     }
     else if (const auto call = std::dynamic_pointer_cast<Call>(expr))
@@ -541,14 +541,14 @@ void Compiler::compileExpr(const std::shared_ptr<Expr>& expr)
     {
         compileExpr(get_expr->object);
         const int nameIdx = currentChunk()->addConstant(vm.newString(get_expr->name.lexeme));
-        emitBytes(static_cast<uint8_t>(OpCode::OP_GET_PROPERTY), static_cast<uint8_t>(nameIdx));
+        emitGlobalOp(static_cast<uint8_t>(OpCode::OP_GET_PROPERTY), nameIdx);
     }
     else if (const auto set_expr = std::dynamic_pointer_cast<SetExpr>(expr))
     {
         compileExpr(set_expr->object);
         compileExpr(set_expr->value);
         const int nameIdx = currentChunk()->addConstant(vm.newString(set_expr->name.lexeme));
-        emitBytes(static_cast<uint8_t>(OpCode::OP_SET_PROPERTY), static_cast<uint8_t>(nameIdx));
+        emitGlobalOp(static_cast<uint8_t>(OpCode::OP_SET_PROPERTY), nameIdx);
     }
     else if (const auto update = std::dynamic_pointer_cast<UpdateExpr>(expr))
     {
@@ -576,23 +576,58 @@ void Compiler::compileExpr(const std::shared_ptr<Expr>& expr)
 
         if (update->isPostfix)
         {
-            emitBytes(static_cast<uint8_t>(getOp), static_cast<uint8_t>(index));
+            if (getOp == OpCode::OP_GET_GLOBAL || getOp == OpCode::OP_SET_GLOBAL)
+            {
+                emitGlobalOp(static_cast<uint8_t>(getOp), index);
+            }
+            else
+            {
+                emitBytes(static_cast<uint8_t>(getOp), static_cast<uint8_t>(index));
+            }
 
-            emitBytes(static_cast<uint8_t>(getOp), static_cast<uint8_t>(index));
+            if (getOp == OpCode::OP_GET_GLOBAL || getOp == OpCode::OP_SET_GLOBAL)
+            {
+                emitGlobalOp(static_cast<uint8_t>(getOp), index);
+            }
+            else
+            {
+                emitBytes(static_cast<uint8_t>(getOp), static_cast<uint8_t>(index));
+            }
             emitConstant(currentChunk()->addConstant(1.0));
             if (update->isIncrement) emitByte(static_cast<uint8_t>(OpCode::OP_ADD));
             else emitByte(static_cast<uint8_t>(OpCode::OP_SUB));
-            emitBytes(static_cast<uint8_t>(setOp), static_cast<uint8_t>(index));
+            if (getOp == OpCode::OP_GET_GLOBAL || getOp == OpCode::OP_SET_GLOBAL)
+            {
+                emitGlobalOp(static_cast<uint8_t>(setOp), index);
+            }
+            else
+            {
+                emitBytes(static_cast<uint8_t>(setOp), static_cast<uint8_t>(index));
+            }
 
             emitByte(static_cast<uint8_t>(OpCode::OP_POP));
         }
         else
         {
-            emitBytes(static_cast<uint8_t>(getOp), static_cast<uint8_t>(index));
+            if (getOp == OpCode::OP_GET_GLOBAL || getOp == OpCode::OP_SET_GLOBAL)
+            {
+                emitGlobalOp(static_cast<uint8_t>(getOp), index);
+            }
+            else
+            {
+                emitBytes(static_cast<uint8_t>(getOp), static_cast<uint8_t>(index));
+            }
             emitConstant(currentChunk()->addConstant(1.0));
             if (update->isIncrement) emitByte(static_cast<uint8_t>(OpCode::OP_ADD));
             else emitByte(static_cast<uint8_t>(OpCode::OP_SUB));
-            emitBytes(static_cast<uint8_t>(setOp), static_cast<uint8_t>(index));
+            if (getOp == OpCode::OP_GET_GLOBAL || getOp == OpCode::OP_SET_GLOBAL)
+            {
+                emitGlobalOp(static_cast<uint8_t>(setOp), index);
+            }
+            else
+            {
+                emitBytes(static_cast<uint8_t>(setOp), static_cast<uint8_t>(index));
+            }
         }
     }
 }
@@ -651,7 +686,7 @@ void Compiler::compileFunctionExpression(const std::shared_ptr<FunctionExpr>& ex
     delete next;
 
     const int idx = currentChunk()->addConstant(f);
-    emitBytes(static_cast<uint8_t>(OpCode::OP_CLOSURE), static_cast<uint8_t>(idx));
+    emitGlobalOp(static_cast<uint8_t>(OpCode::OP_CLOSURE), idx);
 
     for (const auto& u : ups)
     {
@@ -708,7 +743,7 @@ void Compiler::compileArrowFunctionExpression(const std::shared_ptr<ArrowFunctio
     delete next;
 
     const int idx = currentChunk()->addConstant(f);
-    emitBytes(static_cast<uint8_t>(OpCode::OP_CLOSURE), static_cast<uint8_t>(idx));
+    emitGlobalOp(static_cast<uint8_t>(OpCode::OP_CLOSURE), idx);
 
     for (const auto& u : ups)
     {

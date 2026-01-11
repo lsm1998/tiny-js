@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "functional"
+#include <iostream>
 #include <map>
 
 enum class ObjType
@@ -35,6 +36,14 @@ struct Chunk
 
     int addConstant(const Value value)
     {
+        // 尝试复用已有常量
+        for (size_t i = 0; i < constants.size(); i++)
+        {
+            if (constants[i] == value)
+            {
+                return static_cast<int>(i);
+            }
+        }
         constants.push_back(value);
         return static_cast<int>(constants.size()) - 1;
     }

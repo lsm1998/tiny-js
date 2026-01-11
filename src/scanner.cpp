@@ -163,8 +163,12 @@ void Scanner::scanToken(std::vector<Token>& t)
         break;
     case '\'': string(t, '\'');
         break;
-    default: if (isdigit(c)) number(t);
-        if (isalpha(c) || c == '_') identifier(t);
+    default:
+        if (isdigit(c)) {
+            number(t);
+        } else if (isalpha(c) || c == '_') {
+            identifier(t);
+        }
         break;
     }
 }

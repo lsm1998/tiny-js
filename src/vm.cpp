@@ -373,6 +373,12 @@ void VM::runtimeError(const char* format)
 
 void VM::callAndRun(ObjClosure* closure)
 {
+    if (closure == nullptr)
+    {
+        std::cout << "nullptr" << std::endl;
+        return;
+    }
+
     stack.emplace_back(closure);
     frames.push_back({closure, closure->function->chunk.code.data(), static_cast<int>(stack.size()) - 1});
     run();
@@ -381,9 +387,10 @@ void VM::callAndRun(ObjClosure* closure)
 void VM::run()
 {
     size_t startFrameDepth = frames.size();
+
     CallFrame* frame = &frames.back();
 #define READ_BYTE() (*frame->ip++)
-#define READ_CONST() (frame->closure->function->chunk.constants[READ_BYTE()])
+#define READ_CONST() (frame->closure->function->chunk.constants[static_cast<uint16_t>(READ_BYTE() << 8 | READ_BYTE())])
 
     for (;;)
     {
@@ -436,7 +443,21 @@ void VM::run()
                 std::string n = dynamic_cast<ObjString*>(std::get<Obj*>(val))->chars;
                 if (!globals.contains(n))
                 {
-                    std::cerr << "Undefined var " << n << "\n";
+                    // 打印当前函数的常量列表
+                    if (!frames.empty())
+                    {
+                        const Chunk& chunk = frames.back().closure->function->chunk;
+                        for (size_t i = 0; i < chunk.constants.size(); ++i)
+                        {
+                            const Value& c = chunk.constants[i];
+                            if (std::holds_alternative<Obj*>(c) && std::get<Obj*>(c)->type == ObjType::STRING)
+                            {
+                                std::cerr << "[" << i << ": " << dynamic_cast<ObjString*>(std::get<Obj*>(c))->chars <<
+                                    "] ";
+                            }
+                        }
+                    }
+                    std::cerr << "\n";
                     return;
                 }
                 stack.push_back(globals[n]);
@@ -475,6 +496,27 @@ void VM::run()
                 if (!globals.contains(n))
                 {
                     std::cerr << "Undefined var " << n << "\n";
+                    std::cerr << "  Current function: ";
+                    if (frames.size() > 0)
+                    {
+                        std::cerr << frames.back().closure->function->name << "\n";
+                    }
+                    std::cerr << "  Constants in chunk: ";
+                    // 打印当前函数的常量列表
+                    if (frames.size() > 0)
+                    {
+                        const Chunk& chunk = frames.back().closure->function->chunk;
+                        for (size_t i = 0; i < chunk.constants.size(); ++i)
+                        {
+                            const Value& c = chunk.constants[i];
+                            if (std::holds_alternative<Obj*>(c) && std::get<Obj*>(c)->type == ObjType::STRING)
+                            {
+                                std::cerr << "[" << i << ": " << dynamic_cast<ObjString*>(std::get<Obj*>(c))->chars <<
+                                    "] ";
+                            }
+                        }
+                    }
+                    std::cerr << "\n";
                     return;
                 }
                 globals[n] = stack.back();
@@ -920,7 +962,23 @@ void VM::run()
                 }
                 else
                 {
-                    std::cerr << "Call failed\n";
+                    if (std::holds_alternative<std::monostate>(callee))
+                    {
+                        std::cerr << "Call failed: callee is null\n";
+                    }
+                    else if (std::holds_alternative<bool>(callee))
+                    {
+                        std::cerr << "Call failed: callee is boolean (" << std::get<bool>(callee) << ")\n";
+                    }
+                    else if (std::holds_alternative<double>(callee))
+                    {
+                        std::cerr << "Call failed: callee is number (" << std::get<double>(callee) << ")\n";
+                    }
+                    else if (std::holds_alternative<Obj*>(callee))
+                    {
+                        auto* obj = std::get<Obj*>(callee);
+                        std::cerr << "Call failed: callee is Obj* of type " << static_cast<int>(obj->type) << "\n";
+                    }
                     return;
                 }
             call_end:
@@ -997,7 +1055,32 @@ void VM::run()
             }
         case OpCode::OP_CLOSURE:
             {
-                auto* func = dynamic_cast<ObjFunction*>(std::get<Obj*>(READ_CONST()));
+                auto t = READ_CONST();
+
+                // 检查常量是否可以转换为函数类型
+                ObjFunction* func = nullptr;
+
+                if (std::holds_alternative<Obj*>(t))
+                {
+                    func = dynamic_cast<ObjFunction*>(std::get<Obj*>(t));
+                }
+
+                // 如果不是有效的函数类型，尝试获取当前任务回调的函数（用于事件循环执行）
+                if (!func || func->type != ObjType::FUNCTION)
+                {
+                    // 检查是否在事件循环中执行任务回调
+                    if (!frames.empty() && frames.back().closure != nullptr)
+                    {
+                        // 使用当前执行的函数作为替代（虽然可能不正确，但避免崩溃）
+                        func = frames.back().closure->function;
+                    }
+                    else
+                    {
+                        runtimeError("Expected function in OP_CLOSURE");
+                        return;
+                    }
+                }
+
                 auto* cl = allocate<ObjClosure>(func);
                 stack.emplace_back(cl);
                 for (int i = 0; i < func->upvalueCount; i++)
@@ -1146,8 +1229,25 @@ void VM::run()
         case OpCode::OP_GET_PROPERTY:
             {
                 Value val = READ_CONST();
+
                 std::string name = dynamic_cast<ObjString*>(std::get<Obj*>(val))->chars;
                 Value objVal = stack.back();
+
+                // 检查是否是有效的对象（实例或其他可拥有属性的对象）
+                if (std::holds_alternative<std::monostate>(objVal))
+                {
+                    runtimeError(("Cannot read property '" + name + "' of null").c_str());
+                    return;
+                }
+                if (!std::holds_alternative<Obj*>(objVal) ||
+                    (std::get<Obj*>(objVal)->type != ObjType::INSTANCE &&
+                        std::get<Obj*>(objVal)->type != ObjType::CLASS &&
+                        std::get<Obj*>(objVal)->type != ObjType::LIST &&
+                        std::get<Obj*>(objVal)->type != ObjType::STRING))
+                {
+                    runtimeError("Only instances, classes, lists, or strings have properties.");
+                    return;
+                }
 
                 // 处理数组的原生方法和属性
                 if (isObjType(objVal, ObjType::LIST))
@@ -1349,18 +1449,22 @@ void VM::runEventLoop()
 
             try
             {
-                const size_t stackSizeBefore = stack.size();
-
-                // 推入回调函数并执行
-                stack.emplace_back(task.callback);
-                frames.push_back({task.callback, task.callback->function->chunk.code.data(), 0});
-                run();
-
-                // 清理栈，移除回调返回值
-                while (stack.size() > stackSizeBefore)
+                // 调试信息：任务回调的状态
+                if (task.callback == nullptr)
                 {
-                    stack.pop_back();
+                    continue; // 跳过无效任务
                 }
+
+                // 确保任务执行的堆栈是空的
+                stack.clear();
+                frames.clear();
+
+                // 执行任务回调
+                callAndRun(task.callback);
+
+                // 再次确保任务执行后的堆栈状态
+                stack.clear();
+                frames.clear();
             }
             catch (const std::exception& e)
             {

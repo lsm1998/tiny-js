@@ -20,9 +20,10 @@ Value nativeRequire(VM& vm, const int argc, const Value* args)
     }
 
     const std::string source = readFile(path);
+
     if (source.empty())
     {
-        std::cerr << "Could not open file: " << path << "\n";
+        std::cerr << "Could not open file: " << path << " (tried '" << path << "' and 'scripts/" << path << "')\n";
         return std::monostate{};
     }
 
@@ -32,9 +33,9 @@ Value nativeRequire(VM& vm, const int argc, const Value* args)
         return std::monostate{};
     }
 
-    // 保存旧的 exports 对象（如果存在）
+    // 保存旧的 exports 对象
     Value oldExports = std::monostate{};
-    bool hadExports = vm.globals.contains("exports");
+    const bool hadExports = vm.globals.contains("exports");
     if (hadExports)
     {
         oldExports = vm.globals["exports"];
