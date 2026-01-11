@@ -144,16 +144,25 @@ println(arr.length); // 输出 4
 ### 模块加载
 
 ```javascript
-let util = require("util.js");
-let result = util.add(2, 3);
+import {add, PI} from "util.js";
+let result = add(2, 3);
 println(result); // 输出 5
+println(PI); // 输出 3.14159
 ```
 
 ## 内置函数
 
-- `println(value)`：打印值到控制台
+- `println(value)/print(value)`：打印值到控制台
 - `now()`：获取当前时间戳
-- `require(module)`：加载模块
+- `sleep(ms)`： 休眠指定毫秒数
+- `setTimeout(fn, ms)`：延时执行函数
+- `setInterval(fn, ms)`：定时执行函数
+- `clearInterval(id)`：清除定时执行
+- `setEnv(key, value)`：设置环境变量
+- `getEnv(key)`：获取环境变量
+- `typeof(obj)`：获取值的类型
+- `Object.keys(obj)`：获取对象的键列表（暂未实现）
+- `Array.isArray(value)`：检查值是否为数组（暂未实现）
 
 ## 垃圾回收
 

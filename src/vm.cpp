@@ -6,6 +6,7 @@
 #include "native/require.h"
 #include "native/base.h"
 #include "native/file.h"
+#include "native/string.h"
 #include <iostream>
 
 bool toBool(const Value value)
@@ -250,6 +251,11 @@ void VM::registerNative()
         return nativeExit(*this, argc, args);
     });
 
+    defineNative("typeof", [this](auto argc, auto args) -> Value
+    {
+        return nativeTypeof(*this, argc, args);
+    });
+
     bindNativeMethod(ObjType::LIST, "clear", [this](auto argCount, auto args) -> Value
                      {
                          return nativeListClear(*this, argCount, args);
@@ -274,55 +280,11 @@ void VM::registerNative()
                      }
     );
 
-    bindNativeMethod(ObjType::LIST, "at", [this](auto argCount, auto args) -> Value
-                     {
-                         return nativeListAt(*this, argCount, args);
-                     }
-    );
 
-    bindNativeMethod(ObjType::STRING, "length", [this](auto argCount, auto args) -> Value
-                     {
-                         return nativeStringLength(*this, argCount, args);
-                     }
-    );
-
-    bindNativeMethod(ObjType::STRING, "indexOf", [this](auto argCount, auto args) -> Value
-                     {
-                         return nativeStringIndexOf(*this, argCount, args);
-                     }
-    );
-
-    bindNativeMethod(ObjType::STRING, "at", [this](auto argCount, auto args) -> Value
-                     {
-                         return nativeStringAt(*this, argCount, args);
-                     }
-    );
-
-    bindNativeMethod(ObjType::STRING, "substring", [this](auto argCount, auto args) -> Value
-                     {
-                         return nativeStringSubstring(*this, argCount, args);
-                     }
-    );
-
-    bindNativeMethod(ObjType::STRING, "toUpperCase", [this](auto argCount, auto args) -> Value
-                     {
-                         return nativeStringToUpper(*this, argCount, args);
-                     }
-    );
-
-    bindNativeMethod(ObjType::STRING, "toLowerCase", [this](auto argCount, auto args) -> Value
-                     {
-                         return nativeStringToLower(*this, argCount, args);
-                     }
-    );
-
-    bindNativeMethod(ObjType::STRING, "trim", [this](auto argCount, auto args) -> Value
-                     {
-                         return nativeStringTrim(*this, argCount, args);
-                     }
-    );
-
+    // 注册File
     registerNativeFile(*this);
+    // 注册字符串原生方法
+    registerNativeString(*this);
 }
 
 ObjUpvalue* VM::captureUpvalue(Value* local)
@@ -347,7 +309,9 @@ void VM::closeUpvalues(const Value* last)
     while (openUpvalues && openUpvalues->location >= last)
     {
         ObjUpvalue* up = openUpvalues;
+        // 把值从栈上搬到堆上
         up->closedValue = *up->location;
+        // 修改 location 指针，指向堆上的 closedValue
         up->location = &up->closedValue;
         openUpvalues = up->nextUp;
     }
@@ -441,25 +405,6 @@ void VM::run()
                 }
 
                 std::string n = dynamic_cast<ObjString*>(std::get<Obj*>(val))->chars;
-                if (!globals.contains(n))
-                {
-                    // 打印当前函数的常量列表
-                    if (!frames.empty())
-                    {
-                        const Chunk& chunk = frames.back().closure->function->chunk;
-                        for (size_t i = 0; i < chunk.constants.size(); ++i)
-                        {
-                            const Value& c = chunk.constants[i];
-                            if (std::holds_alternative<Obj*>(c) && std::get<Obj*>(c)->type == ObjType::STRING)
-                            {
-                                std::cerr << "[" << i << ": " << dynamic_cast<ObjString*>(std::get<Obj*>(c))->chars <<
-                                    "] ";
-                            }
-                        }
-                    }
-                    std::cerr << "\n";
-                    return;
-                }
                 stack.push_back(globals[n]);
                 break;
             }
