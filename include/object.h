@@ -117,6 +117,8 @@ enum class OpCode : uint8_t
     OP_RETURN,
     // 构建列表
     OP_BUILD_LIST,
+    // 构建对象
+    OP_BUILD_OBJECT,
     // 获取下标
     OP_GET_SUBSCRIPT,
     // 设置下标
@@ -141,7 +143,7 @@ enum class OpCode : uint8_t
     OP_NEW,
 };
 
-static constexpr std::array<std::string_view, 44> opCodeNames = {
+static constexpr std::array<std::string_view, 45> opCodeNames = {
     "OP_CONSTANT",
     "OP_NIL",
     "OP_TRUE",
@@ -175,6 +177,7 @@ static constexpr std::array<std::string_view, 44> opCodeNames = {
     "OP_CLOSE_UPVALUE",
     "OP_RETURN",
     "OP_BUILD_LIST",
+    "OP_BUILD_OBJECT",
     "OP_GET_SUBSCRIPT",
     "OP_SET_SUBSCRIPT",
     "OP_DEFINE_GLOBAL_CONST",
@@ -376,7 +379,25 @@ inline std::string valToString(const Value val)
             return result;
         }
         if (o->type == ObjType::CLASS) return "<class " + dynamic_cast<ObjClass*>(o)->name + ">";
-        if (o->type == ObjType::INSTANCE) return "<instance " + dynamic_cast<ObjInstance*>(o)->klass->name + ">";
+        if (o->type == ObjType::INSTANCE)
+        {
+            const auto* instance = dynamic_cast<ObjInstance*>(o);
+            // 如果是对象字面量，显示其属性
+            if (instance->klass->name == "<object>")
+            {
+                std::string result = "{";
+                bool first = true;
+                for (auto it = instance->fields.begin(); it != instance->fields.end(); ++it)
+                {
+                    if (!first) result += ", ";
+                    result += it->first + ": " + valToString(it->second);
+                    first = false;
+                }
+                result += "}";
+                return result;
+            }
+            return "<instance " + instance->klass->name + ">";
+        }
         if (o->type == ObjType::BOUND_METHOD)
         {
             const auto* bound = dynamic_cast<ObjBoundMethod*>(o);

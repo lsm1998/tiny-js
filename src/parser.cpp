@@ -370,7 +370,11 @@ std::shared_ptr<Expr> Parser::factor()
 
 std::shared_ptr<Expr> Parser::unary()
 {
-    if (match(TokenType::BANG) || match(TokenType::MINUS)) return std::make_shared<Unary>(previous(), unary());
+    if (match(TokenType::BANG) || match(TokenType::MINUS))
+    {
+        const Token op = previous();
+        return std::make_shared<Unary>(op, unary());
+    }
 
     if (match(TokenType::PLUS_PLUS) || match(TokenType::MINUS_MINUS))
     {
@@ -585,6 +589,38 @@ std::shared_ptr<Expr> Parser::primary()
         }
         consume(TokenType::RIGHT_BRACKET, "Expect ']' after list.");
         return std::make_shared<ListExpr>(elements);
+    }
+    if (match(TokenType::LEFT_BRACE))
+    {
+        // 对象字面量: { key: value, ... }
+        std::vector<ObjectExpr::Property> properties;
+        if (!check(TokenType::RIGHT_BRACE))
+        {
+            do
+            {
+                // 解析 key (可以是标识符或字符串)
+                Token key;
+                if (match(TokenType::IDENTIFIER))
+                {
+                    key = previous();
+                }
+                else if (match(TokenType::STRING))
+                {
+                    key = previous();
+                }
+                else
+                {
+                    throw std::runtime_error("[" + filename + ":" + std::to_string(peek().line) + "] Error: Expect property name.");
+                }
+
+                consume(TokenType::COLON, "Expect ':' after property name.");
+                std::shared_ptr<Expr> value = expression();
+                properties.push_back({key, value});
+            }
+            while (match(TokenType::COMMA));
+        }
+        consume(TokenType::RIGHT_BRACE, "Expect '}' after object literal.");
+        return std::make_shared<ObjectExpr>(properties);
     }
     if (match(TokenType::FUN))
     {

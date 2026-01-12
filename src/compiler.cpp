@@ -520,6 +520,16 @@ void Compiler::compileExpr(const std::shared_ptr<Expr>& expr)
         }
         emitBytes(static_cast<uint8_t>(OpCode::OP_BUILD_LIST), static_cast<uint8_t>(list_expr->elements.size()));
     }
+    else if (const auto object_expr = std::dynamic_pointer_cast<ObjectExpr>(expr))
+    {
+        for (const auto& prop : object_expr->properties)
+        {
+            const int keyIdx = currentChunk()->addConstant(vm.newString(prop.key.lexeme));
+            emitConstant(keyIdx);
+            compileExpr(prop.value);
+        }
+        emitBytes(static_cast<uint8_t>(OpCode::OP_BUILD_OBJECT), static_cast<uint8_t>(object_expr->properties.size()));
+    }
     else if (const auto get_subscript_expr = std::dynamic_pointer_cast<GetSubscriptExpr>(expr))
     {
         compileExpr(get_subscript_expr->list);

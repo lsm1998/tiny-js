@@ -225,6 +225,22 @@ struct ListExpr : Expr
     }
 };
 
+// 对象字面量表达式
+struct ObjectExpr : Expr
+{
+    struct Property
+    {
+        Token key;
+        std::shared_ptr<Expr> value;
+    };
+
+    std::vector<Property> properties;
+
+    explicit ObjectExpr(auto p) : properties(p)
+    {
+    }
+};
+
 // 获取下标表达式
 struct GetSubscriptExpr : Expr
 {
