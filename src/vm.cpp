@@ -1099,6 +1099,36 @@ void VM::run()
                 stack.emplace_back(list);
                 break;
             }
+        case OpCode::OP_BUILD_OBJECT:
+            {
+                int count = READ_BYTE();
+                
+                auto* objClass = allocate<ObjClass>("<object>");
+                auto* instance = allocate<ObjInstance>(objClass);
+                for (int i = 0; i < count; i++)
+                {
+                    Value value = stack.back();
+                    stack.pop_back();
+                    Value keyVal = stack.back();
+                    stack.pop_back();
+
+                    // key 应该是字符串
+                    if (!isObjType(keyVal, ObjType::STRING))
+                    {
+                        runtimeError("Object property key must be a string.");
+                        continue;
+                    }
+
+                    const std::string key = std::get<Obj*>(keyVal) != nullptr
+                        ? dynamic_cast<ObjString*>(std::get<Obj*>(keyVal))->chars
+                        : "";
+
+                    instance->fields[key] = value;
+                }
+
+                stack.emplace_back(instance);
+                break;
+            }
         case OpCode::OP_GET_SUBSCRIPT:
             {
                 Value indexVal = stack.back();

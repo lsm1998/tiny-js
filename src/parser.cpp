@@ -590,6 +590,38 @@ std::shared_ptr<Expr> Parser::primary()
         consume(TokenType::RIGHT_BRACKET, "Expect ']' after list.");
         return std::make_shared<ListExpr>(elements);
     }
+    if (match(TokenType::LEFT_BRACE))
+    {
+        // 对象字面量: { key: value, ... }
+        std::vector<ObjectExpr::Property> properties;
+        if (!check(TokenType::RIGHT_BRACE))
+        {
+            do
+            {
+                // 解析 key (可以是标识符或字符串)
+                Token key;
+                if (match(TokenType::IDENTIFIER))
+                {
+                    key = previous();
+                }
+                else if (match(TokenType::STRING))
+                {
+                    key = previous();
+                }
+                else
+                {
+                    throw std::runtime_error("[" + filename + ":" + std::to_string(peek().line) + "] Error: Expect property name.");
+                }
+
+                consume(TokenType::COLON, "Expect ':' after property name.");
+                std::shared_ptr<Expr> value = expression();
+                properties.push_back({key, value});
+            }
+            while (match(TokenType::COMMA));
+        }
+        consume(TokenType::RIGHT_BRACE, "Expect '}' after object literal.");
+        return std::make_shared<ObjectExpr>(properties);
+    }
     if (match(TokenType::FUN))
     {
         auto name = Token{}; // 空名称表示匿名函数
