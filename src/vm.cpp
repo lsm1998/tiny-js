@@ -7,6 +7,7 @@
 #include "native/base.h"
 #include "native/file.h"
 #include "native/string.h"
+#include "native/sys_object.h"
 #include <iostream>
 
 bool toBool(const Value value)
@@ -285,6 +286,8 @@ void VM::registerNative()
     registerNativeFile(*this);
     // 注册字符串原生方法
     registerNativeString(*this);
+    // 注册Object原生方法
+    registerNativeObject(*this);
 }
 
 ObjUpvalue* VM::captureUpvalue(Value* local)
@@ -1136,6 +1139,28 @@ void VM::run()
                 Value listVal = stack.back();
                 stack.pop_back();
 
+                // 检查是否是对象属性访问
+                bool isInstance = isObjType(listVal, ObjType::INSTANCE);
+                bool isString = isObjType(indexVal, ObjType::STRING);
+
+                if (isInstance && isString)
+                {
+                    auto* instance = dynamic_cast<ObjInstance*>(std::get<Obj*>(listVal));
+                    const std::string key = dynamic_cast<ObjString*>(std::get<Obj*>(indexVal))->chars;
+
+                    if (instance->fields.contains(key))
+                    {
+                        stack.push_back(instance->fields[key]);
+                    }
+                    else
+                    {
+                        runtimeError(("Undefined property '" + key + "'.").c_str());
+                        return;
+                    }
+                    break;
+                }
+
+                // 原有的数组访问逻辑
                 if (!isObjType(listVal, ObjType::LIST))
                 {
                     runtimeError("Operands must be a list.");
@@ -1168,6 +1193,18 @@ void VM::run()
                 Value listVal = stack.back();
                 stack.pop_back();
 
+                // 检查是否是对象属性设置：obj[key] = value where key is string
+                if (isObjType(listVal, ObjType::INSTANCE) && isObjType(indexVal, ObjType::STRING))
+                {
+                    auto* instance = dynamic_cast<ObjInstance*>(std::get<Obj*>(listVal));
+                    const std::string key = dynamic_cast<ObjString*>(std::get<Obj*>(indexVal))->chars;
+
+                    instance->fields[key] = val;
+                    stack.push_back(val); // 赋值表达式返回赋的值
+                    break;
+                }
+
+                // 原有的数组设置逻辑
                 if (!isObjType(listVal, ObjType::LIST))
                 {
                     runtimeError("Operands must be a list.");
@@ -1269,6 +1306,24 @@ void VM::run()
                     }
 
                     runtimeError(("Undefined property '" + name + "' on string.").c_str());
+                    return;
+                }
+
+                // 处理类的原生方法（静态方法）
+                if (isObjType(objVal, ObjType::CLASS))
+                {
+                    auto* klass = dynamic_cast<ObjClass*>(std::get<Obj*>(objVal));
+
+                    if (klass->nativeMethods.contains(name))
+                    {
+                        ObjNative* method = klass->nativeMethods[name];
+                        // 对于静态方法，不绑定 this，直接返回方法
+                        stack.pop_back();
+                        stack.emplace_back(method);
+                        break;
+                    }
+
+                    runtimeError(("Undefined static property '" + name + "' on class.").c_str());
                     return;
                 }
 

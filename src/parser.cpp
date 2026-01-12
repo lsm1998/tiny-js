@@ -616,8 +616,21 @@ std::shared_ptr<Expr> Parser::primary()
                 consume(TokenType::COLON, "Expect ':' after property name.");
                 std::shared_ptr<Expr> value = expression();
                 properties.push_back({key, value});
+
+                // 支持尾部逗号: 如果逗号后面是 }，则退出循环
+                if (match(TokenType::COMMA))
+                {
+                    if (check(TokenType::RIGHT_BRACE))
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    break;
+                }
             }
-            while (match(TokenType::COMMA));
+            while (true);
         }
         consume(TokenType::RIGHT_BRACE, "Expect '}' after object literal.");
         return std::make_shared<ObjectExpr>(properties);

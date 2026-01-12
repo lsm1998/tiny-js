@@ -202,10 +202,11 @@ void Compiler::compileStmt(const std::shared_ptr<Stmt>& stmt)
     {
         if (current->scopeDepth > 0)
         {
-            // 对于局部变量，先将变量声明添加到作用域，这样初始化表达式中的闭包可以捕获它
             current->locals.push_back({var_stmt->name.lexeme, current->scopeDepth, false, var_stmt->isConst});
             if (var_stmt->initializer) compileExpr(var_stmt->initializer);
             else emitByte(static_cast<uint8_t>(OpCode::OP_NIL));
+            int slot = static_cast<int>(current->locals.size()) - 1;
+            emitBytes(static_cast<uint8_t>(OpCode::OP_SET_LOCAL), static_cast<uint8_t>(slot));
         }
         else
         {

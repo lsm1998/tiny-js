@@ -16,7 +16,9 @@ let user = {
     profile: {
         age: 25,
         city: 'Beijing'
-    }
+    },
+    isFinite: false,
+    tag: ['a', 'b', true]
 };
 
 println('user:', user);
@@ -35,3 +37,10 @@ printPerson({ name: 'Bob', age: 35 });
 
 
 println('typeof is ', typeof (empty));
+
+let keys = Object.keys(user);
+println('keys is ', keys);
+for (let i = 0; i < keys.length; i++) {
+    let key = keys[i];
+    println('key:', key, 'value:', user[key]);
+}
